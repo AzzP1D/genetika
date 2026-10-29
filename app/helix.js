@@ -144,6 +144,10 @@ export function createHelix(ui, { onFinish }) {
   const arrive = [Array(N).fill(0), Array(N).fill(0)];
   const nick = [Array(N).fill(false), Array(N).fill(false)];
   const flash = [Array(N).fill(0), Array(N).fill(0)];
+  // Сборка ленты новой цепи: сначала основание «садится» на место (land: 0…1),
+  // потом от соседа к нему дорастает звено ленты (link: 0…1) — по одному, в своём темпе.
+  const land = [Array(N).fill(0), Array(N).fill(0)];
+  const link = [Array(N).fill(0), Array(N).fill(0)];
 
   const letters = [[], []], newLetters = [[], []];
   for (let s = 0; s < 2; s++) for (let i = 0; i < N; i++) {
@@ -275,13 +279,17 @@ export function createHelix(ui, { onFinish }) {
   }
   const tWidth = (i, t) => smooth(0, 0.35, i + t) * smooth(0, 0.35, N - 1 - i - t);
   // Новая цепь: лента между соседними «прилетевшими» нуклеотидами; на концах и у разрывов — скруглённые обрывы.
+  // Звено растёт в направлении синтеза 5'→3': на левой цепи — вниз (от i к i+1), на правой — вверх.
   function newWidth(s, i, t) {
-    const present = j => j < N && placed[s][j] && arrive[s][j] > 0.5;
-    if (present(i) && present(i + 1) && !nick[s][i] && arrive[s][i] > 0.99 && arrive[s][i + 1] > 0.99) return 1;
-    const a = present(i) ? 1 - smooth(0.12, 0.42, t) : 0;
-    const b = present(i + 1) ? 1 - smooth(0.12, 0.42, 1 - t) : 0;
-    return Math.max(a, b);
+    const along = s === 0 ? t : 1 - t;
+    const p = link[s][i];
+    const seg = p > 0 ? 1 - smooth(p - 0.05, p + 0.15, along) : 0;
+    const a = land[s][i] * (1 - smooth(0.12, 0.42, t));
+    const b = i + 1 < N ? land[s][i + 1] * (1 - smooth(0.12, 0.42, 1 - t)) : 0;
+    return Math.max(seg, a, b);
   }
+  // Звено между i и i+1 может расти, когда оба нуклеотида сели и нет разрыва.
+  const canLink = (s, i) => i >= 0 && i + 1 < N && land[s][i] >= 1 && land[s][i + 1] >= 1 && !nick[s][i];
 
   // Непрерывные участки новой цепи (между разрывами).
   function runs(s) {
@@ -315,8 +323,8 @@ export function createHelix(ui, { onFinish }) {
         if (placed[s][i] && k > 0) {
           const dirX = s ? -1 : 1;
           tmpB.copy(site(s, i));
-          tmpB.z += (1 - ease(k)) * 2.5;
           nPts[s][i].copy(tmpB);
+          tmpB.z += (1 - ease(k)) * 2.5;
           nCol[s][i].setHex(rna[s][i] ? PALETTE.primer : PALETTE.newDna).lerp(_white, flash[s][i]);
           tmpA.copy(tmpB); tmpA.x -= dirX * BASE_LEN;
           setCyl(nBase, s * N + i, tmpB, tmpA, 0.05);
@@ -608,7 +616,16 @@ export function createHelix(ui, { onFinish }) {
 
     for (let s = 0; s < 2; s++) for (let i = 0; i < N; i++) {
       if (placed[s][i] && arrive[s][i] < 1) arrive[s][i] = Math.min(1, arrive[s][i] + dt * 2.4);
+      if (placed[s][i] && arrive[s][i] >= 1) land[s][i] = Math.min(1, land[s][i] + dt * 5);
       if (flash[s][i] > 0) flash[s][i] = Math.max(0, flash[s][i] - dt * 1.5);
+    }
+    // Звенья ленты: каждое начинает расти, только когда готово предыдущее по ходу синтеза.
+    for (let s = 0; s < 2; s++) for (let k = 0; k < N - 1; k++) {
+      const i = s === 0 ? k : N - 2 - k;
+      if (!canLink(s, i)) { if (nick[s][i]) link[s][i] = 0; continue; }
+      const prev = s === 0 ? i - 1 : i + 1;
+      const ready = !canLink(s, prev) || link[s][prev] >= 1;
+      if (ready && link[s][i] < 1) link[s][i] = Math.min(1, link[s][i] + dt * 4);
     }
 
     if (step === 'intro' || fork < FIRST_OPEN + 0.01) helicase.target.y = yOf(fork + 1);
