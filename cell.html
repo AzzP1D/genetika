@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Клетка — 3D</title>
+  <meta name="author" content="Гинько Егор Дмитриевич, учитель биологии и химии, ГУО «Боровская средняя школа имени Г.К. Жукова Лепельского района»">
+  <meta name="copyright" content="© 2026 Гинько Егор Дмитриевич. Все права защищены.">
   <style>
     /* Интерфейс в стиле «био-неон»: тёмные полупрозрачные панели с тонкой светящейся рамкой. */
     :root { --cyan: #00e5ff; --acid: #39ff14; --pink: #ff2bd6; --ink: #04060d; --panel: #06121cd9; --line: #00e5ff55; }
@@ -17,7 +19,7 @@
       text-shadow: 0 0 10px #00e5ff99; margin-bottom: 2px; }
     #hud span { color: #cfeff7; }
     #hud .hint { color: #7fb8c4; font-size: 13px; }
-    #bottom { position: fixed; left: 10px; right: 10px; bottom: 12px; display: flex; flex-direction: column; gap: 10px; }
+    #bottom { position: fixed; left: 10px; right: 10px; bottom: 22px; display: flex; flex-direction: column; gap: 10px; }
     #label { padding: 12px 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line);
       backdrop-filter: blur(8px); box-shadow: 0 0 18px #00e5ff22; display: none; }
     #label .ok { color: var(--acid); text-shadow: 0 0 10px #39ff1488; }
@@ -40,6 +42,8 @@
     #glow { position: fixed; right: 20px; top: 58px; width: 40px; height: 40px; font: 20px system-ui, sans-serif; color: var(--cyan);
       padding: 0; border-radius: 50%; text-shadow: 0 0 8px #00e5ff; border: 1px solid var(--line); background: #04060daa; cursor: pointer; }
     #glow.off { color: #7fa6b0; }
+    #wm { position: fixed; left: 0; right: 0; bottom: 4px; text-align: center; font-size: 10px; letter-spacing: .04em;
+      color: #7fd8e866; pointer-events: none; }
     #loading { position: fixed; inset: 0; display: grid; place-items: center; color: var(--cyan);
       letter-spacing: .12em; text-shadow: 0 0 12px #00e5ff; }
   </style>
@@ -50,6 +54,7 @@
 <body>
   <div id="loading">Загрузка клетки…</div>
   <div id="hud"><b>Животная клетка</b><span>Вращайте пальцем, нажмите на органоид</span></div>
+  <div id="wm">© 2026 Гинько Е.Д. · Все права защищены</div>
   <div id="bottom">
     <div id="label"></div>
     <div id="buttons"></div>
