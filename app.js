@@ -192,7 +192,12 @@ render();
 function homeView() {
   const st = loadStats();
   const cur = Progress.current();
+  const lv = Level.get();
   return '<h1>Генетика</h1><p class="sub">Путь «от молекулы к признаку»</p>' +
+    // Уровень: школьный или олимпиадный. Олимпиадный меняет оформление и (дальше) содержание.
+    '<div class="level" role="group" aria-label="Уровень сложности">' +
+    '<button data-act="level" data-v="school"' + (lv === 'school' ? ' class="on"' : '') + '>Школьный</button>' +
+    '<button data-act="level" data-v="olymp"' + (lv === 'olymp' ? ' class="on"' : '') + '>Олимпиадный</button></div>' +
     // Справочник вне пути: открыт всегда, прохождение не отмечается.
     '<button class="module atlas" data-act="go" data-v="atlas.html"><em>Справочник · 3D</em><b>Атлас клетки</b>' +
     '<span>Органоиды животной клетки крупным планом: строение, функции, типичные ошибки</span></button>' +
@@ -276,6 +281,78 @@ function render() {
   app.innerHTML = view === 'home' ? homeView() : taskView();
 }
 
+// ---------- переход на олимпиадный уровень ----------
+
+// Заставка «смена протокола»: экран захватывают помехи, на панели расшифровывается
+// «ОЛИМПИАДНЫЙ УРОВЕНЬ», печатается отчёт и заполняется полоса загрузки; вспышка —
+// интерфейс уже красный, — и заставка схлопывается в линию, как выключенный кинескоп.
+// Всё идёт по плану и заканчивается чисто, чтобы ученик понял: это не поломка, а «вход».
+// Касание пропускает заставку.
+let intro = null;
+const NOISE = '01⬡АГЦТ<>/#%&';
+const scramble = (from, to, k) => [...to].map((c, i) => c === ' ' ? ' ' :
+  i < to.length * k ? c : Math.random() < 0.5 && from[i] ? from[i] : NOISE[Math.random() * NOISE.length | 0]).join('');
+
+function olympIntro() {
+  if (intro) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { Level.set('olymp'); render(); return; }
+  const LINES = [
+    ['› протокол', 'олимпиадный'],
+    ['› глубина материала', 'повышенная'],
+    ['› ловушки в заданиях', 'коварные'],
+  ];
+  const el = document.createElement('div');
+  el.id = 'protocol';
+  el.innerHTML = '<div class="bands">' + '<i></i>'.repeat(7) + '</div>' +
+    '<div class="box"><div class="warn">⚠ ВНИМАНИЕ · СМЕНА ПРОТОКОЛА</div><div class="big"></div>' +
+    '<div class="lines">' + LINES.map(() => '<div></div>').join('') + '</div>' +
+    '<div class="bar"><i></i></div><div class="pct">0 %</div></div><div class="skip">коснитесь, чтобы пропустить</div>';
+  el.querySelectorAll('.bands i').forEach(b => {
+    b.style.setProperty('--y', Math.random() * 95 + '%');
+    b.style.setProperty('--h', 4 + Math.random() * 40 + 'px');
+    b.style.setProperty('--x', (Math.random() * 40 - 20) + 'px');
+    b.style.animationDelay = -Math.random() + 's';
+  });
+  document.body.append(el);
+  document.body.classList.add('breach');
+  const big = el.querySelector('.big'), bar = el.querySelector('.bar i'), pct = el.querySelector('.pct');
+  const rows = [...el.querySelectorAll('.lines div')];
+  const t0 = performance.now(), SWITCH = 1500, END = 2700;
+  let switched = false, raf = 0;
+  const swap = () => {
+    if (switched) return;
+    switched = true;
+    Level.set('olymp');
+    render();
+    el.classList.add('flash');
+    document.body.classList.remove('breach');
+  };
+  const finish = () => {
+    cancelAnimationFrame(raf);
+    swap();
+    el.classList.add('out');
+    setTimeout(() => { el.remove(); intro = null; }, 480);
+  };
+  const step = () => {
+    const t = performance.now() - t0;
+    big.textContent = scramble('ШКОЛЬНЫЙ УРОВЕНЬ', 'ОЛИМПИАДНЫЙ УРОВЕНЬ', Math.max(0, (t - 200) / 900));
+    rows.forEach((r, i) => {
+      const k = Math.min(1, Math.max(0, (t - 450 - i * 250) / 300));
+      const [a, b] = LINES[i];
+      r.innerHTML = k ? a + ' '.repeat(Math.max(1, 22 - a.length)) + '<b>' + scramble('', b, k) + '</b>' : '';
+    });
+    const p = Math.min(1, t / SWITCH);
+    bar.style.width = p * 100 + '%';
+    pct.textContent = Math.round(p * 100) + ' %';
+    if (t >= SWITCH) swap();
+    if (t >= END) return finish();
+    raf = requestAnimationFrame(step);
+  };
+  el.addEventListener('click', () => { if (!el.classList.contains('out')) finish(); });
+  intro = el;
+  step();
+}
+
 // ---------- действия ----------
 
 app.addEventListener('click', e => {
@@ -289,6 +366,16 @@ app.addEventListener('click', e => {
       newTask(); view = 'task'; break;
     }
     case 'go': location.href = v; return;
+    case 'level': {
+      if (v === Level.get()) return;
+      if (v === 'olymp') { olympIntro(); return; }
+      Level.set(v);
+      // Переключение — короткий «сбой» всего экрана.
+      document.body.classList.remove('switching');
+      void document.body.offsetWidth;
+      document.body.classList.add('switching');
+      break;
+    }
     case 'home': view = 'home'; break;
     case 'new': newTask(); break;
     case 'check': check(); return;

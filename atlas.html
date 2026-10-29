@@ -6,6 +6,8 @@
   <title>Атлас клетки — 3D</title>
   <meta name="author" content="Гинько Егор Дмитриевич, учитель биологии и химии, ГУО «Боровская средняя школа имени Г.К. Жукова Лепельского района»">
   <meta name="copyright" content="© 2026 Гинько Егор Дмитриевич. Все права защищены.">
+  <link rel="stylesheet" href="level.css">
+  <script src="level.js"></script>
   <style>
     /* «Биотех»: био-неон + интерфейс лаборатории будущего. Панели в форме листа (два угла
        скруглены, два почти острые), шестигранные «соты», узлы выносок пульсируют как живые. */
@@ -20,7 +22,7 @@
       -webkit-mask-image: radial-gradient(ellipse at center, transparent 35%, #000 85%);
       mask-image: radial-gradient(ellipse at center, transparent 35%, #000 85%); }
     .leaf { background: var(--panel); border: 1px solid var(--line); border-radius: 20px 5px 20px 5px;
-      backdrop-filter: blur(8px); box-shadow: 0 0 18px #00e5ff1f, inset 0 0 16px #00e5ff0d; position: relative; }
+      backdrop-filter: blur(8px); box-shadow: 0 0 18px rgb(var(--c-rgb) / 0.12), inset 0 0 16px rgb(var(--c-rgb) / 0.05); position: relative; }
     /* Уголки-скобки на острых углах панели. */
     .leaf::before, .leaf::after { content: ""; position: absolute; width: 12px; height: 12px; border: 2px solid var(--cyan);
       filter: drop-shadow(0 0 4px var(--cyan)); pointer-events: none; }
@@ -29,11 +31,11 @@
     .mono { font-family: var(--mono); }
 
     #top { position: fixed; left: 10px; right: 10px; top: 10px; padding: 10px 100px 10px 14px; pointer-events: none; }
-    #top .scan { font: 11px var(--mono); letter-spacing: .18em; color: var(--acid); text-shadow: 0 0 8px #39ff1499; }
+    #top .scan { font: 11px var(--mono); letter-spacing: .18em; color: var(--acid); text-shadow: 0 0 8px rgb(var(--a-rgb) / 0.6); }
     #top .scan i { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--acid);
       box-shadow: 0 0 8px var(--acid); animation: beat 1.6s infinite; vertical-align: 1px; }
     #top b { display: block; font-size: 15px; letter-spacing: .12em; text-transform: uppercase; color: var(--cyan);
-      text-shadow: 0 0 10px #00e5ff99; margin-top: 2px; }
+      text-shadow: 0 0 10px rgb(var(--c-rgb) / 0.6); margin-top: 2px; }
     #top span { color: #cfeff7; font-size: 14px; }
     @keyframes beat { 0%, 100% { opacity: 1; transform: scale(1); } 15% { transform: scale(1.5); } 30% { opacity: .5; transform: scale(1); } }
 
@@ -41,11 +43,11 @@
     #pick { position: fixed; left: 10px; right: 10px; bottom: 24px; padding: 12px 14px; display: none; }
     #pick .lat { font: italic 12px var(--mono); color: var(--dim); }
     #pick p { margin: 4px 0 10px; color: #cfeff7; }
-    .name { font-weight: 700; font-size: 17px; color: #fff; text-shadow: 0 0 10px #00e5ff88; }
+    .name { font-weight: 700; font-size: 17px; color: #fff; text-shadow: 0 0 10px rgb(var(--c-rgb) / 0.53); }
     .no { font: 12px var(--mono); color: var(--acid); margin-right: 6px; }
     button.go { width: 100%; min-height: 48px; border: 0; border-radius: 16px 4px 16px 4px; cursor: pointer;
-      background: linear-gradient(90deg, #00e5ff, #39ff14); color: #02130a; font: 700 16px system-ui, sans-serif;
-      letter-spacing: .04em; box-shadow: 0 0 22px #00e5ff66; }
+      background: linear-gradient(90deg, rgb(var(--c-rgb)), rgb(var(--a-rgb))); color: #02130a; font: 700 16px system-ui, sans-serif;
+      letter-spacing: .04em; box-shadow: 0 0 22px rgb(var(--c-rgb) / 0.4); }
     button.go:disabled { background: #0b2430; color: var(--dim); box-shadow: none; cursor: default; }
 
     /* Карточка органоида крупным планом. */
@@ -64,7 +66,7 @@
     .tabs { display: flex; gap: 6px; margin: 4px 0 6px; }
     .tabs button { flex: 1; min-height: 36px; border: 1px solid var(--line); background: #061a22; color: var(--dim);
       border-radius: 12px 3px 12px 3px; font: 600 13px system-ui, sans-serif; cursor: pointer; }
-    .tabs button.on { color: #02130a; background: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 14px #00e5ff77; }
+    .tabs button.on { color: #02130a; background: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 14px rgb(var(--c-rgb) / 0.47); }
     .tabs button.warn.on { background: #ff5c8a; border-color: #ff5c8a; box-shadow: 0 0 14px #ff2b6a77; }
     #card ul { margin: 4px 0 2px; padding: 0; list-style: none; }
     #card li { position: relative; padding-left: 18px; margin: 5px 0; color: #d8f6fc; }
@@ -76,7 +78,7 @@
 
     /* Выноски: линии на SVG поверх 3D, подписи — плашки у краёв экрана. */
     #leaders { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
-    #leaders path { fill: none; stroke: var(--cyan); stroke-width: 1.2; stroke-linejoin: round; filter: drop-shadow(0 0 3px #00e5ff); }
+    #leaders path { fill: none; stroke: var(--cyan); stroke-width: 1.2; stroke-linejoin: round; filter: drop-shadow(0 0 3px rgb(var(--c-rgb))); }
     #leaders .hull { fill: none; stroke-width: 1.4; stroke-dasharray: 5 4; stroke-linejoin: round; opacity: .9;
       animation: march 1.2s linear infinite; }
     @keyframes march { to { stroke-dashoffset: -18; } }
@@ -87,7 +89,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     #tags { position: fixed; inset: 0; pointer-events: none; }
     /* Подпись без фона, в двух уголках-скобках: у полки — верхний, напротив — нижний. */
-    .tag { --c: #00e5ff; position: absolute; max-width: 120px; box-sizing: content-box; padding: 5px 8px; font-size: 12.5px; line-height: 1.25; font-weight: 600;
+    .tag { --c: rgb(var(--c-rgb)); position: absolute; max-width: 120px; box-sizing: content-box; padding: 5px 8px; font-size: 12.5px; line-height: 1.25; font-weight: 600;
       color: #f2feff; text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 8px var(--c); transition: opacity .3s; }
     .tag::before, .tag::after { content: ""; position: absolute; width: 8px; height: 8px; border: 1.6px solid var(--c);
       filter: drop-shadow(0 0 3px var(--c)); }
@@ -103,12 +105,12 @@
     #back { position: fixed; right: 20px; top: 20px; color: var(--cyan); text-decoration: none; font-size: 14px; cursor: pointer;
       padding: 6px 10px; border-radius: 10px 3px 10px 3px; border: 1px solid var(--line); background: #04060daa; font-family: inherit; }
     #glow { position: fixed; right: 20px; top: 58px; width: 40px; height: 40px; font: 20px system-ui, sans-serif; color: var(--cyan);
-      padding: 0; border-radius: 50%; text-shadow: 0 0 8px #00e5ff; border: 1px solid var(--line); background: #04060daa; cursor: pointer; }
+      padding: 0; border-radius: 50%; text-shadow: 0 0 8px rgb(var(--c-rgb)); border: 1px solid var(--line); background: #04060daa; cursor: pointer; }
     #glow.off { color: #7fa6b0; }
     #wm { position: fixed; left: 0; right: 0; bottom: 4px; text-align: center; font-size: 10px; letter-spacing: .04em;
       color: #7fd8e866; pointer-events: none; }
     #loading { position: fixed; inset: 0; display: grid; place-items: center; color: var(--cyan); font-family: var(--mono);
-      letter-spacing: .14em; text-shadow: 0 0 12px #00e5ff; }
+      letter-spacing: .14em; text-shadow: 0 0 12px rgb(var(--c-rgb)); }
   </style>
   <script type="importmap">
     { "imports": { "three": "./lib/three.module.js", "three/addons/": "./lib/addons/" } }

@@ -1,0 +1,47 @@
+/* Уровень сложности: школьный (обычные цвета) или олимпиадный.
+   На олимпиадном меняется только интерфейс — рамки, кнопки, свечение, соты: он становится
+   «агрессивным» (неоново-красный и янтарный) и изредка «сбоит», как экран с помехами.
+   Цвета молекул не меняются: ДНК всегда циан (единый цветовой код). */
+:root {
+  --c-rgb: 0 229 255;      /* главный акцент интерфейса */
+  --a-rgb: 57 255 20;      /* второй акцент: индикаторы, «верно» */
+}
+:root[data-level="olymp"] {
+  --c-rgb: 255 43 92;
+  --a-rgb: 255 149 0;
+  --cyan: rgb(255 43 92);
+  --accent: rgb(255 43 92);
+  --acid: rgb(255 149 0);
+  --ok: rgb(255 149 0);
+  --line: rgb(255 43 92 / .32);
+  --accent-soft: rgb(255 43 92 / .12);
+  --panel: #19060ddb;
+  --card: #170810;
+  --muted: #c99aa7;
+  --dim: #c99aa7;
+  --text: #fff0f3;
+}
+:root[data-level="olymp"] #hex {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='42' height='72' viewBox='0 0 42 72'%3E%3Cpath d='M21 0l21 12v24L21 48 0 36V12zM21 48v24' fill='none' stroke='%23ff2b5c' stroke-opacity='.12'/%3E%3C/svg%3E");
+}
+
+/* «Сбой»: раз в несколько секунд заголовок на долю секунды раздваивается и дёргается. */
+@keyframes glitch {
+  0%, 90%, 100% { transform: none; text-shadow: 0 0 12px rgb(var(--c-rgb) / .6); clip-path: none; }
+  91% { transform: translate(-2px, 1px) skewX(-8deg); text-shadow: -3px 0 #ff2bd6, 3px 0 #00e5ff; clip-path: inset(10% 0 45% 0); }
+  92% { transform: translate(3px, -1px); text-shadow: 2px 0 #ff2bd6, -2px 0 #ffb000; clip-path: inset(55% 0 5% 0); }
+  93% { transform: translate(-1px, 0); text-shadow: -1px 0 #00e5ff; clip-path: none; }
+  94% { transform: none; }
+}
+/* Меню целиком иногда «моргает», как от помехи. */
+@keyframes jolt {
+  0%, 96.5%, 100% { transform: none; filter: none; }
+  97% { transform: translateX(2px); filter: hue-rotate(25deg) saturate(1.6); }
+  97.6% { transform: translateX(-1px); filter: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-level="olymp"] h1,
+  :root[data-level="olymp"] #top b,
+  :root[data-level="olymp"] #hud b { animation: glitch 5.5s infinite steps(1); }
+  :root[data-level="olymp"] #app { animation: jolt 9s infinite; }
+}

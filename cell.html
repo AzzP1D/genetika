@@ -6,6 +6,8 @@
   <title>Клетка — 3D</title>
   <meta name="author" content="Гинько Егор Дмитриевич, учитель биологии и химии, ГУО «Боровская средняя школа имени Г.К. Жукова Лепельского района»">
   <meta name="copyright" content="© 2026 Гинько Егор Дмитриевич. Все права защищены.">
+  <link rel="stylesheet" href="level.css">
+  <script src="level.js"></script>
   <style>
     /* Интерфейс в стиле «био-неон»: тёмные полупрозрачные панели с тонкой светящейся рамкой. */
     :root { --cyan: #00e5ff; --acid: #39ff14; --pink: #ff2bd6; --ink: #04060d; --panel: #06121cd9; --line: #00e5ff55; }
@@ -14,23 +16,23 @@
     canvas { display: block; touch-action: none; }
     #hud { position: fixed; left: 10px; right: 10px; top: 10px; padding: 12px 92px 12px 14px; pointer-events: none;
       background: var(--panel); border: 1px solid var(--line); border-radius: 16px; backdrop-filter: blur(8px);
-      box-shadow: 0 0 18px #00e5ff22, inset 0 0 14px #00e5ff10; }
+      box-shadow: 0 0 18px rgb(var(--c-rgb) / 0.13), inset 0 0 14px rgb(var(--c-rgb) / 0.06); }
     #hud b { display: block; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--cyan);
-      text-shadow: 0 0 10px #00e5ff99; margin-bottom: 2px; }
+      text-shadow: 0 0 10px rgb(var(--c-rgb) / 0.6); margin-bottom: 2px; }
     #hud span { color: #cfeff7; }
     #hud .hint { color: #7fb8c4; font-size: 13px; }
     #bottom { position: fixed; left: 10px; right: 10px; bottom: 22px; display: flex; flex-direction: column; gap: 10px; }
     #label { padding: 12px 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line);
-      backdrop-filter: blur(8px); box-shadow: 0 0 18px #00e5ff22; display: none; }
-    #label .ok { color: var(--acid); text-shadow: 0 0 10px #39ff1488; }
+      backdrop-filter: blur(8px); box-shadow: 0 0 18px rgb(var(--c-rgb) / 0.13); display: none; }
+    #label .ok { color: var(--acid); text-shadow: 0 0 10px rgb(var(--a-rgb) / 0.53); }
     #label .err { color: #ff5c8a; text-shadow: 0 0 10px #ff2b6a77; }
     #buttons { display: flex; gap: 8px; flex-wrap: wrap; }
     #buttons:empty { display: none; }
     #buttons button { flex: 1; min-height: 50px; border: 1px solid var(--line); border-radius: 14px; background: #071622e6;
       color: #e6fbff; font: 600 16px system-ui, sans-serif; cursor: pointer; transition: box-shadow .2s, transform .1s; }
     #buttons button:active { transform: scale(.97); }
-    #buttons button.primary { background: linear-gradient(90deg, #00e5ff, #39ff14); border: 0; color: #02130a;
-      box-shadow: 0 0 22px #00e5ff77, 0 0 40px #39ff1433; }
+    #buttons button.primary { background: linear-gradient(90deg, rgb(var(--c-rgb)), rgb(var(--a-rgb))); border: 0; color: #02130a;
+      box-shadow: 0 0 22px rgb(var(--c-rgb) / 0.47), 0 0 40px rgb(var(--a-rgb) / 0.2); }
     #buttons.palette button { font-size: 22px; min-width: 48px; color: #04060d; border: 0; box-shadow: 0 0 14px currentColor; }
     #buttons.column { flex-direction: column; }
     #buttons.column button { flex: none; text-align: left; padding: 10px 14px; font-weight: 500; }
@@ -40,12 +42,12 @@
     #back { position: fixed; right: 20px; top: 20px; color: var(--cyan); text-decoration: none; font-size: 14px;
       padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line); background: #04060daa; }
     #glow { position: fixed; right: 20px; top: 58px; width: 40px; height: 40px; font: 20px system-ui, sans-serif; color: var(--cyan);
-      padding: 0; border-radius: 50%; text-shadow: 0 0 8px #00e5ff; border: 1px solid var(--line); background: #04060daa; cursor: pointer; }
+      padding: 0; border-radius: 50%; text-shadow: 0 0 8px rgb(var(--c-rgb)); border: 1px solid var(--line); background: #04060daa; cursor: pointer; }
     #glow.off { color: #7fa6b0; }
     #wm { position: fixed; left: 0; right: 0; bottom: 4px; text-align: center; font-size: 10px; letter-spacing: .04em;
       color: #7fd8e866; pointer-events: none; }
     #loading { position: fixed; inset: 0; display: grid; place-items: center; color: var(--cyan);
-      letter-spacing: .12em; text-shadow: 0 0 12px #00e5ff; }
+      letter-spacing: .12em; text-shadow: 0 0 12px rgb(var(--c-rgb)); }
   </style>
   <script type="importmap">
     { "imports": { "three": "./lib/three.module.js", "three/addons/": "./lib/addons/" } }
