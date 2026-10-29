@@ -1,0 +1,64 @@
+﻿<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Клетка — 3D</title>
+  <style>
+    /* Интерфейс в стиле «био-неон»: тёмные полупрозрачные панели с тонкой светящейся рамкой. */
+    :root { --cyan: #00e5ff; --acid: #39ff14; --pink: #ff2bd6; --ink: #04060d; --panel: #06121cd9; --line: #00e5ff55; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--ink); color: #e6fbff;
+      font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    canvas { display: block; touch-action: none; }
+    #hud { position: fixed; left: 10px; right: 10px; top: 10px; padding: 12px 92px 12px 14px; pointer-events: none;
+      background: var(--panel); border: 1px solid var(--line); border-radius: 16px; backdrop-filter: blur(8px);
+      box-shadow: 0 0 18px #00e5ff22, inset 0 0 14px #00e5ff10; }
+    #hud b { display: block; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--cyan);
+      text-shadow: 0 0 10px #00e5ff99; margin-bottom: 2px; }
+    #hud span { color: #cfeff7; }
+    #hud .hint { color: #7fb8c4; font-size: 13px; }
+    #bottom { position: fixed; left: 10px; right: 10px; bottom: 12px; display: flex; flex-direction: column; gap: 10px; }
+    #label { padding: 12px 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line);
+      backdrop-filter: blur(8px); box-shadow: 0 0 18px #00e5ff22; display: none; }
+    #label .ok { color: var(--acid); text-shadow: 0 0 10px #39ff1488; }
+    #label .err { color: #ff5c8a; text-shadow: 0 0 10px #ff2b6a77; }
+    #buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+    #buttons:empty { display: none; }
+    #buttons button { flex: 1; min-height: 50px; border: 1px solid var(--line); border-radius: 14px; background: #071622e6;
+      color: #e6fbff; font: 600 16px system-ui, sans-serif; cursor: pointer; transition: box-shadow .2s, transform .1s; }
+    #buttons button:active { transform: scale(.97); }
+    #buttons button.primary { background: linear-gradient(90deg, #00e5ff, #39ff14); border: 0; color: #02130a;
+      box-shadow: 0 0 22px #00e5ff77, 0 0 40px #39ff1433; }
+    #buttons.palette button { font-size: 22px; min-width: 48px; color: #04060d; border: 0; box-shadow: 0 0 14px currentColor; }
+    #buttons.column { flex-direction: column; }
+    #buttons.column button { flex: none; text-align: left; padding: 10px 14px; font-weight: 500; }
+    #buttons button:disabled { opacity: .4; cursor: default; box-shadow: none; }
+    #fade { position: fixed; inset: 0; background: var(--ink); opacity: 0; pointer-events: none; transition: opacity .6s; }
+    #fade.on { opacity: 1; }
+    #back { position: fixed; right: 20px; top: 20px; color: var(--cyan); text-decoration: none; font-size: 14px;
+      padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line); background: #04060daa; }
+    #glow { position: fixed; right: 20px; top: 58px; width: 40px; height: 40px; font: 20px system-ui, sans-serif; color: var(--cyan);
+      padding: 0; border-radius: 50%; text-shadow: 0 0 8px #00e5ff; border: 1px solid var(--line); background: #04060daa; cursor: pointer; }
+    #glow.off { color: #7fa6b0; }
+    #loading { position: fixed; inset: 0; display: grid; place-items: center; color: var(--cyan);
+      letter-spacing: .12em; text-shadow: 0 0 12px #00e5ff; }
+  </style>
+  <script type="importmap">
+    { "imports": { "three": "./lib/three.module.js", "three/addons/": "./lib/addons/" } }
+  </script>
+</head>
+<body>
+  <div id="loading">Загрузка клетки…</div>
+  <div id="hud"><b>Животная клетка</b><span>Вращайте пальцем, нажмите на органоид</span></div>
+  <div id="bottom">
+    <div id="label"></div>
+    <div id="buttons"></div>
+  </div>
+  <div id="fade"></div>
+  <a id="back" href="index.html">← Меню</a>
+  <button id="glow" type="button">✦</button>
+  <script src="path.js"></script>
+  <script type="module" src="cell.js"></script>
+</body>
+</html>
+

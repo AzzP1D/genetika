@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Образец стиля</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #04060d; color: #dff8ff;
+      font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    canvas { display: block; touch-action: none; }
+    .panel { border: 1px solid #3ff3ff55; background: #06121ccc; backdrop-filter: blur(6px);
+      border-radius: 14px; box-shadow: 0 0 18px #2ee8ff22, inset 0 0 12px #2ee8ff11; }
+    #hud { position: fixed; left: 12px; right: 12px; top: 12px; padding: 12px 14px; }
+    #hud b { display: block; font-size: 13px; letter-spacing: .14em; color: #7ff7ff; text-transform: uppercase; }
+    #card { position: fixed; left: 12px; right: 12px; bottom: 76px; padding: 12px 14px; display: none; }
+    #card .tag { font: 600 11px/1 ui-monospace, Consolas, monospace; letter-spacing: .18em; color: #ffb27a; }
+    #card h3 { margin: 6px 0 4px; font-size: 18px; color: #ffd2b0; text-shadow: 0 0 10px #ff7a4588; }
+    #modes { position: fixed; left: 12px; right: 12px; bottom: 12px; display: flex; gap: 8px; }
+    #modes button { flex: 1; min-height: 48px; border-radius: 12px; border: 1px solid #3ff3ff55; background: #06121c;
+      color: #bfefff; font: 600 15px system-ui, sans-serif; cursor: pointer; }
+    #modes button.on { background: #0b3240; border-color: #7ff7ff; color: #fff; box-shadow: 0 0 14px #2ee8ff55; }
+    #back { position: fixed; right: 20px; top: 20px; color: #7ff7ff; text-decoration: none; font-size: 14px; }
+  </style>
+  <script type="importmap">
+    { "imports": { "three": "./lib/three.module.js", "three/addons/": "./lib/addons/" } }
+  </script>
+</head>
+<body>
+  <div id="hud" class="panel"><b>Образец стиля</b><span>Митохондрия. Вращайте пальцем, нажмите на органоид.</span></div>
+  <div id="card" class="panel"><div class="tag">АНАЛИЗ ▸ ОРГАНОИД</div><h3>Митохондрия</h3>
+    Энергетическая станция клетки: здесь синтезируется АТФ. Внутренняя мембрана образует извилистые складки — кристы. В матриксе — собственные рибосомы и кольцевая ДНК.</div>
+  <div id="modes"><button data-m="neon" class="on">Био-неон</button><button data-m="toon">Как сейчас</button></div>
+  <a id="back" href="index.html">← Меню</a>
+  <script type="module" src="style-test.js"></script>
+</body>
+</html>

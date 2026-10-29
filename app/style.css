@@ -1,0 +1,118 @@
+/* Тема «био-неон»: тёмный фон, кислотные акценты, светящиеся рамки. */
+:root {
+  --bg: #04060d;
+  --card: #071420;
+  --text: #e6fbff;
+  --muted: #86b4c0;
+  --line: #00e5ff40;
+  --accent: #00e5ff;
+  --accent-soft: #00e5ff1a;
+  --acid: #39ff14;
+  --err: #ff5c8a;
+  --err-soft: #ff2b6a1f;
+  --ok: #39ff14;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+#app { max-width: 560px; margin: 0 auto; padding: 16px; }
+
+h1 { font-size: 24px; margin: 8px 0 4px; }
+h2 { font-size: 18px; margin: 0 0 12px; }
+.sub { color: var(--muted); margin: 0 0 20px; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.module {
+  display: block; width: 100%; text-align: left;
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--line); border-radius: 14px;
+  padding: 14px 16px; margin-bottom: 10px; font: inherit; cursor: pointer;
+}
+.module b { display: block; }
+.module span { color: var(--muted); font-size: 14px; }
+.module:disabled { opacity: .5; cursor: default; }
+.module:not(:disabled):hover { border-color: var(--accent); }
+
+.top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.back { background: none; border: none; color: var(--accent); font: inherit; cursor: pointer; padding: 4px 0; }
+.stepno { margin-left: auto; color: var(--muted); font-size: 14px; }
+
+.notebook { font-family: Consolas, "Courier New", monospace; font-size: 15px; }
+.notebook div { padding: 2px 0; }
+
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.row .lbl { min-width: 90px; color: var(--muted); }
+
+.opt {
+  background: var(--card); color: var(--text);
+  border: 2px solid var(--line); border-radius: 10px;
+  padding: 8px 14px; font: inherit; cursor: pointer; min-width: 52px;
+}
+.opt.sel { border-color: var(--accent); background: var(--accent-soft); }
+.opts-col .opt { display: block; width: 100%; text-align: left; margin-bottom: 8px; }
+
+table.punnett { border-collapse: collapse; margin: 4px 0 8px; }
+.punnett th, .punnett td { border: 1px solid var(--line); text-align: center; padding: 0; }
+.punnett th { padding: 8px 14px; color: var(--muted); font-weight: 600; }
+.cell {
+  width: 72px; height: 56px; border: 0; background: var(--card); color: var(--text);
+  font: 600 18px/1 Consolas, monospace; cursor: pointer;
+}
+.cell.wrong { background: var(--err-soft); color: var(--err); }
+.hint { color: var(--muted); font-size: 14px; }
+
+.msg { border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; }
+.msg.err { background: var(--err-soft); color: var(--err); }
+.msg.ok { background: var(--accent-soft); color: var(--ok); }
+.msg p { margin: 4px 0; }
+
+.primary {
+  width: 100%; padding: 14px; border: 0; border-radius: 12px;
+  background: var(--accent); color: #fff; font: 600 16px/1 inherit; cursor: pointer;
+}
+.secondary {
+  width: 100%; padding: 12px; margin-top: 8px; border: 1px solid var(--line); border-radius: 12px;
+  background: none; color: var(--text); font: inherit; cursor: pointer;
+}
+.stats { color: var(--muted); font-size: 14px; margin-top: 16px; }
+
+/* Карта пути */
+.path { list-style: none; margin: 0; padding: 0; position: relative; }
+.path::before { content: ""; position: absolute; left: 17px; top: 18px; bottom: 30px; width: 2px; background: var(--line); }
+.path li { display: flex; gap: 12px; align-items: flex-start; position: relative; }
+.path .dot {
+  flex: none; width: 36px; height: 36px; border-radius: 50%; margin-top: 10px; z-index: 1;
+  display: grid; place-items: center; font-weight: 700; font-size: 15px;
+  background: var(--card); border: 2px solid var(--line); color: var(--muted);
+}
+.path .module { flex: 1; }
+.path li.done .dot { background: var(--accent); border-color: var(--accent); color: #fff; }
+.path li.next .dot { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.path li.next .module { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.path .module em { display: block; font-style: normal; font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .04em; }
+.path li.soon .dot { opacity: .6; }
+.secondary:disabled { opacity: .5; cursor: default; }
+
+/* Неоновые акценты */
+body { background: radial-gradient(1200px 600px at 50% -10%, #0a2a3a 0%, var(--bg) 60%) fixed; }
+h1 { color: var(--accent); letter-spacing: .06em; text-shadow: 0 0 14px #00e5ff99; }
+.card, .module { box-shadow: 0 0 14px #00e5ff12, inset 0 0 12px #00e5ff08; }
+.module:not(:disabled):hover, .path li.next .module { box-shadow: 0 0 18px #00e5ff44; }
+.primary { background: linear-gradient(90deg, #00e5ff, #39ff14); color: #02130a; box-shadow: 0 0 20px #00e5ff66; }
+.path li.done .dot { background: var(--acid); border-color: var(--acid); color: #02130a; box-shadow: 0 0 12px #39ff1488; }
+.path li.next .dot { box-shadow: 0 0 0 4px var(--accent-soft), 0 0 14px #00e5ff88; }
+.path::before { background: linear-gradient(#00e5ff66, #00e5ff10); }
+.opt.sel { box-shadow: 0 0 12px #00e5ff55; }
+.msg.ok { text-shadow: 0 0 8px #39ff1455; }

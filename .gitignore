@@ -1,0 +1,14 @@
+# В открытый репозиторий попадают только код приложения и скрипты 3D-моделей.
+# Документы автора (журнал, дневник), APK, исходные модели, Android-проект и зависимости — нет.
+/*
+!/app/
+!/blender/
+!/tools/
+!/package.json
+!/package-lock.json
+!/README.md
+!/.gitignore
+/blender/previews/
+/tools/make-diary.mjs
+__pycache__/
+/tools/optimize-cell.mjs
