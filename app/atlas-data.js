@@ -101,7 +101,8 @@ export const ATLAS = {
       { part: 'ribo_large', text: 'Большая субъединица', dir: [-1, 0.4, 0.3] },
       { part: 'ribo_small', text: 'Малая субъединица', dir: [0.6, 1, 0.3] },
       { part: 'ribo_mrna', text: 'иРНК', dir: [1, -0.3, 0.4] },
-      { part: 'ribo_peptide', text: 'Растущий белок', dir: [-0.3, -1, 0.5] },
+      { part: 'ribo_peptide', text: 'Аминокислота', dir: [0.3, -1, 0.4] },
+      { part: 'ribo_peptide', text: 'Растущий белок (цепь аминокислот)', group: true },
     ],
     card: {
       'Строение': [
