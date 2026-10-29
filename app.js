@@ -193,6 +193,9 @@ function homeView() {
   const st = loadStats();
   const cur = Progress.current();
   return '<h1>Генетика</h1><p class="sub">Путь «от молекулы к признаку»</p>' +
+    // Справочник вне пути: открыт всегда, прохождение не отмечается.
+    '<button class="module atlas" data-act="go" data-v="atlas.html"><em>Справочник · 3D</em><b>Атлас клетки</b>' +
+    '<span>Органоиды животной клетки крупным планом: строение, функции, типичные ошибки</span></button>' +
     '<ol class="path">' + PATH.map((m, i) => {
       const done = Progress.isDone(m.id), soon = !m.href, next = cur && cur.id === m.id;
       const cls = done ? 'done' : next ? 'next' : soon ? 'soon' : '';
