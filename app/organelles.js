@@ -36,6 +36,12 @@ export const PARTS = {
   lyso_membrane:  { color: 0xc04bff, glass: true, glow: 1.8, power: 4.0, body: 0.0, strength: 0.5 },
   lyso_enzyme:    { color: 0xff2bd6, glow: 2.0, body: 0.5 },
   lyso_debris:    { color: 0x39ff14, glow: 1.6, body: 0.35 },
+  // Нуклеосома по структуре PDB 1KX5: ДНК — циан, как везде; гистоны — пары родственных цветов.
+  nucs_dna:       { color: 0x00e5ff, glow: 2.0, power: 2.0, body: 0.45 },
+  nucs_h3:        { color: 0x9b4dff, glow: 1.9, power: 2.0, body: 0.5 },
+  nucs_h4:        { color: 0xe06bff, glow: 1.9, power: 2.0, body: 0.5 },
+  nucs_h2a:       { color: 0xb6ff3a, glow: 1.9, power: 2.0, body: 0.5 },
+  nucs_h2b:       { color: 0xffc83d, glow: 1.9, power: 2.0, body: 0.5 },
   cell_membrane:     { color: 0x00e5ff, glass: true, glow: 1.6, power: 3.0, body: 0.0, strength: 0.2 },
   cell_membrane_rim: { color: 0x7ff9ff, glass: true, glow: 1.2, power: 1.5, body: 0.35, strength: 0.45 },
   ...MEMBRANE_PARTS,

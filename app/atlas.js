@@ -17,7 +17,7 @@ const $ = id => document.getElementById(id);
 const topEl = $('top'), pickEl = $('pick'), cardEl = $('card'), fadeEl = $('fade');
 const svg = $('leaders'), tagsEl = $('tags');
 const BACKDROP = ['membrane'];   // прозрачная оболочка: выбирается, только если под ней ничего нет
-const code = a => 'ORG-' + String(a.no).padStart(2, '0');
+const code = a => a.code || 'ORG-' + String(a.no).padStart(2, '0');
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
@@ -161,13 +161,15 @@ function choose(id) {
 function pedestal(radius, y) {
   const g = new THREE.Group();
   g.position.y = y;
+  // Цвета стенда — по уровню: школьный циан с зелёным, олимпиадный красный с янтарным.
+  const C1 = Level.isOlymp() ? 0xff2b5c : 0x00e5ff, C2 = Level.isOlymp() ? 0xff9500 : 0x39ff14;
   const line = (color, opacity) => new THREE.LineBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false });
   const circle = (r, n = 96) => new THREE.BufferGeometry().setFromPoints([...Array(n)].map((_, i) => {
     const a = i / n * Math.PI * 2; return new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r);
   }));
-  g.add(new THREE.LineLoop(circle(radius), line(0x00e5ff, 0.9)));
-  g.add(new THREE.LineLoop(circle(radius * 0.82), line(0x00e5ff, 0.35)));
-  const hexRing = new THREE.LineLoop(circle(radius * 1.12, 6), line(0x39ff14, 0.7));
+  g.add(new THREE.LineLoop(circle(radius), line(C1, 0.9)));
+  g.add(new THREE.LineLoop(circle(radius * 0.82), line(C1, 0.35)));
+  const hexRing = new THREE.LineLoop(circle(radius * 1.12, 6), line(C2, 0.7));
   g.add(hexRing);
   // Риски по краю, как на шкале прибора.
   const ticks = [];
@@ -175,14 +177,14 @@ function pedestal(radius, y) {
     const a = i / 72 * Math.PI * 2, r2 = radius * (i % 6 ? 0.94 : 0.88);
     ticks.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius), new THREE.Vector3(Math.cos(a) * r2, 0, Math.sin(a) * r2));
   }
-  const tickLines = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(ticks), line(0x00e5ff, 0.5));
+  const tickLines = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(ticks), line(C1, 0.5));
   g.add(tickLines);
   const floor = new THREE.Mesh(new THREE.CircleGeometry(radius, 64).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.035, blending: THREE.AdditiveBlending, depthWrite: false }));
+    new THREE.MeshBasicMaterial({ color: C1, transparent: true, opacity: 0.035, blending: THREE.AdditiveBlending, depthWrite: false }));
   g.add(floor);
   // Кольцо сканирования проходит снизу вверх через органоид.
   const scan = new THREE.Mesh(new THREE.RingGeometry(radius * 0.97, radius * 1.02, 96).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color: 0x39ff14, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    new THREE.MeshBasicMaterial({ color: C2, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
   g.add(scan);
   g.traverse(o => { o.raycast = () => {}; });
   g.update = (t, height) => {
@@ -389,7 +391,7 @@ function showCard(id) {
   const a = ATLAS[id];
   const tabs = Object.keys(a.card);
   cardEl.innerHTML = '<div class="head"><span class="no">' + code(a) + '</span><span class="name">' + a.name + '</span><span class="lat">' + a.lat +
-    '</span><span class="count">' + String(a.no).padStart(2, '0') + ' / ' + TOTAL + '</span></div>' +
+    '</span><span class="count">' + (a.no ? String(a.no).padStart(2, '0') + ' / ' + TOTAL : a.source || '') + '</span></div>' +
     '<div class="chips">' + (a.data || []).map(([k]) => '<div class="chip"><span>' + k + ': <em></em></span></div>').join('') + '</div>' +
     '<div class="tabs">' + tabs.map((t, i) => '<button type="button" data-i="' + i + '"' + (t === 'Ошибка' ? ' class="warn"' : '') + '>' +
       (t === 'Ошибка' ? '⚠ Типичная ошибка' : t) + '</button>').join('') + '</div><ul></ul>';
@@ -437,12 +439,6 @@ function flyTo(pos, target, seconds, then) {
 function openSpecimen(id, instant) {
   saved = { pos: camera.position.clone(), target: controls.target.clone() };
   pickEl.style.display = 'none';
-  // Подлетаем к ближайшему из органоидов этого вида, потом переходим на стенд.
-  const objs = cell.parts[id].objects;
-  const near = objs.reduce((p, o) => (o.getWorldPosition(new THREE.Vector3()).distanceTo(camera.position) < p.getWorldPosition(new THREE.Vector3()).distanceTo(camera.position) ? o : p));
-  const box = new THREE.Box3().setFromObject(near);
-  const c = box.getCenter(new THREE.Vector3());
-  const dir = camera.position.clone().sub(c).normalize();
   const go = () => crossfade(async () => {
     mode = 'specimen';
     cell.group.visible = false;
@@ -461,7 +457,14 @@ function openSpecimen(id, instant) {
     controls.autoRotateSpeed = 0.8;
     $('back').textContent = '← К клетке';
   });
-  if (instant) { go(); return; }
+  // Подлетаем к ближайшему из органоидов этого вида, потом переходим на стенд.
+  // Молекулы, которых нет в клетке (проба PDB), открываются сразу.
+  if (instant || !cell.parts[id]) { go(); return; }
+  const objs = cell.parts[id].objects;
+  const near = objs.reduce((p, o) => (o.getWorldPosition(new THREE.Vector3()).distanceTo(camera.position) < p.getWorldPosition(new THREE.Vector3()).distanceTo(camera.position) ? o : p));
+  const box = new THREE.Box3().setFromObject(near);
+  const c = box.getCenter(new THREE.Vector3());
+  const dir = camera.position.clone().sub(c).normalize();
   mode = 'flying';
   flyTo(c.clone().add(dir.multiplyScalar(box.getSize(new THREE.Vector3()).length() * 1.1)), c, 1.1, go);
 }
