@@ -227,6 +227,31 @@ function anchorOn(root, part, dir) {
   return best;
 }
 
+// Точки части модели (не больше max) — для групповой выноски, которая обводит всю часть.
+function pointsOn(root, part, max = 300) {
+  const pts = [];
+  root.traverse(o => {
+    if (!o.isMesh || o.userData.part !== part) return;
+    const pos = o.geometry.attributes.position;
+    const step = Math.max(1, Math.floor(pos.count / max));
+    for (let i = 0; i < pos.count; i += step) pts.push(new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld));
+  });
+  return pts;
+}
+
+// Выпуклая оболочка точек на экране (алгоритм «монотонной цепи»).
+function hull2d(pts) {
+  pts = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const half = list => {
+    const h = [];
+    for (const p of list) { while (h.length > 1 && cross(h[h.length - 2], h[h.length - 1], p) <= 0) h.pop(); h.push(p); }
+    h.pop();
+    return h;
+  };
+  return half(pts).concat(half(pts.reverse()));
+}
+
 const SVGNS = 'http://www.w3.org/2000/svg';
 const svgEl = (tag, attrs) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
 
@@ -258,15 +283,19 @@ async function buildSpecimen(id) {
   // горизонтальная «полка» и подпись без фона в уголках-скобках — рядом с органоидом.
   svg.replaceChildren();
   tagsEl.replaceChildren();
+  // Групповая выноска (group: true) обводит всю часть пунктирным контуром — например,
+  // цепь аминокислот целиком, чтобы «белок» не путался с одной «аминокислотой».
   const tags = (a.labels || []).map(l => {
-    const at = anchorOn(holder, l.part, l.dir);
+    const pts = l.group ? pointsOn(holder, l.part) : null;
+    const at = l.group ? (pts.length ? pts.reduce((c, p) => c.add(p), new THREE.Vector3()).divideScalar(pts.length) : null) : anchorOn(holder, l.part, l.dir);
     if (!at) return null;
     const color = '#' + new THREE.Color(PARTS[l.part]?.color ?? 0x00e5ff).getHexString();
     const g = svgEl('g');
     const path = svgEl('path');
-    const node = svgEl('g');
-    node.append(svgEl('circle', { r: 8, class: 'spin' }), svgEl('circle', { r: 4.2, class: 'ring' }), svgEl('circle', { r: 2, class: 'core' }));
-    node.style.stroke = node.style.fill = color;
+    const node = l.group ? svgEl('path', { class: 'hull' }) : svgEl('g');
+    if (!l.group) node.append(svgEl('circle', { r: 8, class: 'spin' }), svgEl('circle', { r: 4.2, class: 'ring' }), svgEl('circle', { r: 2, class: 'core' }));
+    node.style.stroke = color;
+    if (!l.group) node.style.fill = color;
     g.append(path, node);
     svg.append(g);
     const el = document.createElement('div');
@@ -274,7 +303,7 @@ async function buildSpecimen(id) {
     el.innerHTML = l.text;
     el.style.setProperty('--c', color);
     tagsEl.append(el);
-    return { at, g, path, node, el };
+    return { at, pts, g, path, node, el };
   }).filter(Boolean);
 
   return { id, group, base, built, height: half.y * 2 + 0.6, radius: Math.max(half.x, half.y, half.z), center: new THREE.Vector3(0, -0.15, 0), tags };
@@ -299,6 +328,17 @@ function layoutTags() {
     P.copy(t.at).project(camera);
     t.x = (P.x + 1) / 2 * W;
     t.y = (1 - P.y) / 2 * H;
+    if (t.pts) {
+      // Контур вокруг группы, раздутый на 9 пикселей; выноска выходит из его крайней точки
+      // в сторону подписи.
+      const toScreen = v => { P.copy(v).project(camera); return [(P.x + 1) / 2 * W, (1 - P.y) / 2 * H]; };
+      const mx = t.x, my = t.y;
+      const h = hull2d(t.pts.map(toScreen)).map(([x, y]) => { const d = Math.hypot(x - mx, y - my) || 1; return [x + (x - mx) / d * 9, y + (y - my) / d * 9]; });
+      t.node.setAttribute('d', 'M' + h.map(([x, y]) => x.toFixed(1) + ' ' + y.toFixed(1)).join('L') + 'Z');
+      const left = mx < cx;
+      const tip = h.reduce((b, p) => (left ? p[0] < b[0] : p[0] > b[0]) ? p : b);
+      t.x = tip[0]; t.y = tip[1];
+    }
     // Скобки должны обнимать сам текст: ширина подписи — по самой длинной её строке.
     if (!t.sized) {
       const r = document.createRange();
@@ -311,7 +351,7 @@ function layoutTags() {
     t.ly = t.y + (t.y < cy ? -30 : 30);
     // Точка на дальней стороне образца — выноска бледнее.
     C.copy(camera.position).sub(t.at);
-    t.back = C.dot(t.at) < 0;
+    t.back = !t.pts && C.dot(t.at) < 0;
     (t.x < cx ? sides.l : sides.r).push(t);
   }
   for (const s in sides) {
@@ -340,7 +380,7 @@ function layoutTags() {
       t.el.style.opacity = t.back ? 0.5 : 1;
       t.g.style.opacity = t.back ? 0.4 : 1;
       t.path.setAttribute('d', 'M' + t.x.toFixed(1) + ' ' + t.y.toFixed(1) + 'L' + ex.toFixed(1) + ' ' + t.ly.toFixed(1) + 'L' + end.toFixed(1) + ' ' + t.ly.toFixed(1));
-      t.node.setAttribute('transform', 'translate(' + t.x.toFixed(1) + ' ' + t.y.toFixed(1) + ')');
+      if (!t.pts) t.node.setAttribute('transform', 'translate(' + t.x.toFixed(1) + ' ' + t.y.toFixed(1) + ')');
     }
   }
 }
