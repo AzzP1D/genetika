@@ -1,8 +1,9 @@
-# Запускает скрипт Blender без окна: tools\blender.ps1 blender\models\<имя>.py
+﻿# Запускает скрипт Blender без окна: tools\blender.ps1 blender\models\<имя>.py
 # Скрипт строит модель, сохраняет app\models\<имя>.glb и картинку blender\previews\<имя>.png
 # (четыре ракурса); затем модель сжимается (meshopt) для телефона.
 param([Parameter(Mandatory)] [string]$Script)
-$blender = 'D:\Documents\Blender\blender.exe'
+. (Join-Path $PSScriptRoot 'env.ps1')   # путь к Blender: этот компьютер или переносной диск
+$blender = $env:BLENDER_EXE
 $root = Split-Path $PSScriptRoot -Parent
 & $blender --background --factory-startup --python-exit-code 1 --python (Join-Path $root $Script) -- $root 2>&1 |
   ForEach-Object { "$_" } | Where-Object { $_ -match 'OK|Error|Traceback|line \d+|Warning: ' }
