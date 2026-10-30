@@ -302,7 +302,7 @@ async function buildSpecimen(id) {
     svg.append(g);
     const el = document.createElement('div');
     el.className = 'tag';
-    el.innerHTML = l.text;
+    el.innerHTML = Level.isOlymp() && l.olymp ? l.olymp : l.text;   // олимпиадный уровень — подпись глубже
     el.style.setProperty('--c', color);
     tagsEl.append(el);
     return { at, pts, g, path, node, el };
@@ -390,22 +390,68 @@ function layoutTags() {
 function showCard(id) {
   const a = ATLAS[id];
   const tabs = Object.keys(a.card);
+  // Олимпиадный уровень: между обычными вкладками — маленькая кнопка ★. Она прячет
+  // обычные вкладки и открывает одну олимпиадную: факты, ловушки и переход к молекуле.
+  // На телефоне так меньше интерфейса, а текста — сколько нужно.
+  const ol = Level.isOlymp() && a.olymp;
+  const tab = (t, i) => '<button type="button" data-i="' + i + '"' + (t === 'Ошибка' ? ' class="warn"' : '') + '>' +
+    (t === 'Ошибка' ? '⚠ Типичная ошибка' : t) + '</button>';
+  const star = ol ? '<button type="button" class="star" aria-label="Олимпиадный уровень">★<span class="lbl"></span></button>' +
+    '<button type="button" class="close" aria-label="Вернуться к обычным вкладкам">✕</button>' : '';
   cardEl.innerHTML = '<div class="head"><span class="no">' + code(a) + '</span><span class="name">' + a.name + '</span><span class="lat">' + a.lat +
     '</span><span class="count">' + (a.no ? String(a.no).padStart(2, '0') + ' / ' + TOTAL : a.source || '') + '</span></div>' +
     '<div class="chips">' + (a.data || []).map(([k]) => '<div class="chip"><span>' + k + ': <em></em></span></div>').join('') + '</div>' +
-    '<div class="tabs">' + tabs.map((t, i) => '<button type="button" data-i="' + i + '"' + (t === 'Ошибка' ? ' class="warn"' : '') + '>' +
-      (t === 'Ошибка' ? '⚠ Типичная ошибка' : t) + '</button>').join('') + '</div><ul></ul>';
+    '<div class="tabs">' + tabs.map((t, i) => (t === 'Ошибка' ? star : '') + tab(t, i)).join('') + '</div><ul></ul>' +
+    (ol && a.olymp.open ? '<button class="go more" type="button" hidden>' + a.olymp.openText + '</button>' : '');
+  cardEl.classList.remove('olymp-on');
   cardEl.querySelectorAll('.chip em').forEach((em, i) => setTimeout(() => decode(em, a.data[i][1]), 150 * i));
   const list = cardEl.querySelector('ul');
-  const btns = [...cardEl.querySelectorAll('.tabs button')];
-  const open = i => {
-    btns.forEach((b, j) => b.classList.toggle('on', i === j));
-    list.innerHTML = a.card[tabs[i]].map(s => '<li>' + s + '</li>').join('');
+  const btns = [...cardEl.querySelectorAll('.tabs button[data-i]')];
+  const more = cardEl.querySelector('.more');
+  let last = 0;
+  const show = items => {
+    list.innerHTML = items;
+    list.classList.remove('reveal');
+    void list.offsetWidth;
+    list.classList.add('reveal');
     fitView();
     teletype(list);
   };
+  // Переключение «обычные вкладки ↔ олимпиада»: луч сканирования по полосе вкладок.
+  const morph = back => {
+    cardEl.classList.remove('morph', 'back');
+    void cardEl.offsetWidth;
+    cardEl.classList.add('morph');
+    cardEl.classList.toggle('back', back);
+  };
+  const open = i => {
+    last = i;
+    if (cardEl.classList.contains('olymp-on')) {
+      morph(true);
+      cardEl.querySelector('.star .lbl').textContent = '';
+    }
+    cardEl.classList.remove('olymp-on');
+    btns.forEach((b, j) => b.classList.toggle('on', i === j));
+    if (more) more.hidden = true;
+    show(a.card[tabs[i]].map(s => '<li>' + s + '</li>').join(''));
+  };
   btns.forEach((b, i) => { b.onclick = () => open(i); });
+  if (ol) {
+    const starBtn = cardEl.querySelector('.star');
+    starBtn.onclick = () => {
+      if (cardEl.classList.contains('olymp-on')) return;
+      cardEl.classList.add('olymp-on');
+      morph(false);
+      setTimeout(() => { if (cardEl.classList.contains('olymp-on')) decode(starBtn.querySelector('.lbl'), ' Олимпиада', 800); }, 350);
+      if (more) more.hidden = false;
+      show(a.olymp.facts.map(s => '<li>' + s + '</li>').join('') +
+        (a.olymp.traps ? '<li class="sub">⚠ Ловушки олимпиадного уровня</li>' + a.olymp.traps.map(s => '<li class="trap">' + s + '</li>').join('') : ''));
+    };
+    cardEl.querySelector('.close').onclick = () => open(last);
+    if (more) more.onclick = () => switchSpecimen(a.olymp.open, id);
+  }
   cardEl.style.display = 'block';
+  cardEl.scrollTop = 0;   // новая карточка — с начала, даже если прошлую прокрутили
   open(0);
 }
 
@@ -442,19 +488,7 @@ function openSpecimen(id, instant) {
   const go = () => crossfade(async () => {
     mode = 'specimen';
     cell.group.visible = false;
-    spec = await buildSpecimen(id);
-    scene.add(spec.group);
-    top('Образец ' + code(ATLAS[id]), 'Вращайте образец пальцем. Подписи следуют за моделью.');   // название — в карточке
-    showCard(id);
-    const free = fitView();
-    const d = viewDistance(free);
-    controls.target.copy(spec.center);
-    camera.position.set(...(ATLAS[id].view || [0.35, 0.55, 1])).normalize().multiplyScalar(d).add(spec.center);
-    controls.minDistance = d * 0.45;
-    controls.maxDistance = d * 1.8;
-    controls.enabled = true;
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.8;
+    await showSpecimen(id);
     $('back').textContent = '← К клетке';
   });
   // Подлетаем к ближайшему из органоидов этого вида, потом переходим на стенд.
@@ -469,14 +503,46 @@ function openSpecimen(id, instant) {
   flyTo(c.clone().add(dir.multiplyScalar(box.getSize(new THREE.Vector3()).length() * 1.1)), c, 1.1, go);
 }
 
+// Образец на стенде: собрать, показать карточку, поставить камеру.
+async function showSpecimen(id) {
+  spec = await buildSpecimen(id);
+  scene.add(spec.group);
+  top('Образец ' + code(ATLAS[id]), 'Вращайте образец пальцем. Подписи следуют за моделью.');   // название — в карточке
+  showCard(id);
+  const free = fitView();
+  const d = viewDistance(free);
+  controls.target.copy(spec.center);
+  camera.position.set(...(ATLAS[id].view || [0.35, 0.55, 1])).normalize().multiplyScalar(d).add(spec.center);
+  controls.minDistance = d * 0.45;
+  controls.maxDistance = d * 1.8;
+  controls.enabled = true;
+  controls.autoRotate = true;
+  controls.autoRotateSpeed = 0.8;
+}
+
+function dropSpecimen() {
+  scene.remove(spec.group);
+  // Геометрия модели общая с клеткой (кэш загрузчика) — освобождаем только стенд.
+  for (const g of [spec.base, spec.built && spec.built.group]) {
+    if (g) g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+  }
+  spec = null;
+}
+
+// Переход со стенда на стенд: из карточки ядра — к нуклеосоме и обратно.
+// from — откуда пришли: кнопка «←» тогда ведёт назад к нему, а не в клетку.
+function switchSpecimen(id, from) {
+  crossfade(async () => {
+    dropSpecimen();
+    await showSpecimen(id);
+    spec.from = from;
+    $('back').textContent = from ? '← ' + ATLAS[from].name : '← К клетке';
+  });
+}
+
 function closeSpecimen() {
   crossfade(() => {
-    scene.remove(spec.group);
-    // Геометрия модели общая с клеткой (кэш загрузчика) — освобождаем только стенд.
-    for (const g of [spec.base, spec.built && spec.built.group]) {
-      if (g) g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
-    }
-    spec = null;
+    dropSpecimen();
     mode = 'cell';
     cardEl.style.display = 'none';
     camera.clearViewOffset();
@@ -492,7 +558,10 @@ function closeSpecimen() {
   });
 }
 
-$('back').onclick = () => { if (mode === 'specimen') closeSpecimen(); else if (mode === 'cell') location.href = 'index.html'; };
+$('back').onclick = () => {
+  if (mode === 'specimen') spec.from ? switchSpecimen(spec.from) : closeSpecimen();
+  else if (mode === 'cell') location.href = 'index.html';
+};
 controls.addEventListener('start', () => { controls.autoRotate = false; });
 
 // ---------- касания ----------

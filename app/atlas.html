@@ -63,10 +63,40 @@
     .chip > span { display: block; padding: 3px 14px; background: #061a22; font: 12px var(--mono); color: var(--dim);
       clip-path: inherit; }
     .chip em { font-style: normal; color: var(--cyan); }
-    .tabs { display: flex; gap: 6px; margin: 4px 0 6px; }
-    .tabs button { flex: 1; min-height: 36px; border: 1px solid var(--line); background: #061a22; color: var(--dim);
-      border-radius: 12px 3px 12px 3px; font: 600 13px system-ui, sans-serif; cursor: pointer; }
+    .tabs { position: relative; display: flex; gap: 6px; margin: 4px 0 6px; }
+    .tabs button { flex: 1 1 0; min-width: 0; min-height: 36px; border: 1px solid var(--line); background: #061a22; color: var(--dim);
+      border-radius: 12px 3px 12px 3px; font: 600 13px system-ui, sans-serif; cursor: pointer; overflow: hidden;
+      transition: flex .9s cubic-bezier(.45, 0, .25, 1), opacity .7s ease, filter .7s ease, transform .8s ease, margin .9s ease, padding .9s ease,
+        border-width .9s ease, background .6s ease, color .6s ease, box-shadow .6s ease; }
     .tabs button.on { color: #02130a; background: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 14px rgb(var(--c-rgb) / 0.47); }
+    /* Кнопка ★ олимпиадного уровня — маленькая между обычными вкладками. По нажатию обычные
+       вкладки сжимаются и растворяются, как втянутые псевдоподии, ★ «прорастает» во всю ширину,
+       по полосе проходит луч сканирования, а надпись «Олимпиада» расшифровывается из символов.
+       ✕ — назад, всё идёт в обратную сторону. */
+    .tabs button.star { flex: 0 0 40px; color: #ffb000; border-color: #ffb00077; font-size: 17px; text-shadow: 0 0 8px #ffb000; white-space: nowrap; }
+    .tabs button.star .lbl { font-size: 14px; font-weight: 700; letter-spacing: .06em; }
+    .tabs button.close { flex: 0 0 0; padding: 0; border-width: 0; margin-right: -6px; opacity: 0; transform: scale(.6) rotate(-45deg); }
+    #card.olymp-on .tabs button[data-i] { flex: 0 1 0; padding: 0; border-width: 0; margin-right: -6px; opacity: 0;
+      filter: blur(4px); transform: scaleY(.85) skewX(-8deg); }
+    #card.olymp-on .tabs button.star { flex: 1 1 0; color: #1a0d00; background: #ffb000; border-color: #ffb000; box-shadow: 0 0 16px #ffb00099; text-shadow: none; }
+    #card.olymp-on .tabs button.close { flex: 0 0 40px; padding: 1px 6px; border-width: 1px; margin-right: 0; opacity: 1; transform: none; }
+    /* Луч сканирования по полосе вкладок при переключении. */
+    .tabs::after { content: ""; position: absolute; top: -4px; bottom: -4px; left: 0; width: 42px; pointer-events: none; opacity: 0;
+      background: linear-gradient(90deg, transparent, #ffb000cc, #fff8, #ffb000cc, transparent); filter: blur(2px); mix-blend-mode: screen; }
+    #card.morph .tabs::after { animation: sweep 1.1s cubic-bezier(.45, 0, .25, 1); }
+    #card.morph.back .tabs::after { animation-direction: reverse; }
+    @keyframes sweep { 0% { opacity: 0; transform: translateX(-40px); } 15% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; transform: translateX(calc(min(86vw, 640px))); } }
+    /* Содержимое проявляется, как образец под микроскопом при наведении резкости. */
+    #card ul.reveal { animation: focus .8s ease-out; }
+    @keyframes focus { from { opacity: 0; filter: blur(6px); transform: translateY(6px); } to { opacity: 1; filter: none; transform: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      .tabs button { transition: none; }
+      #card.morph .tabs::after, #card ul.reveal { animation: none; }
+    }
+    #card li.sub { padding-left: 0; margin-top: 12px; color: #ff8fb0; font-weight: 700; letter-spacing: .04em; }
+    #card li.sub::before { content: none; }
+    #card li.trap::before { color: #ff5c8a; text-shadow: 0 0 6px #ff5c8a; }
+    button.go.more { margin-top: 8px; min-height: 42px; font-size: 14px; }
     .tabs button.warn.on { background: #ff5c8a; border-color: #ff5c8a; box-shadow: 0 0 14px #ff2b6a77; }
     #card ul { margin: 4px 0 2px; padding: 0; list-style: none; }
     #card li { position: relative; padding-left: 18px; margin: 5px 0; color: #d8f6fc; }
