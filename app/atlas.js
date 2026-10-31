@@ -473,6 +473,7 @@ function showCard(id) {
     pause.onclick = e => { e.stopPropagation(); spec.built.setPaused(!spec.built.isPaused()); showPause(); };
     spec.built.setPaused(false);
     showPause();
+    showStatus(spec.built.status());   // репортаж сразу, чтобы масштаб кадра учитывал его высоту
   }
   cardEl.insertAdjacentHTML('afterbegin', '<div class="grip" title="Смахните вниз, чтобы свернуть"></div>');   // «ручка» — самая верхняя
   cardEl.classList.remove('olymp-on');
@@ -539,6 +540,8 @@ function fitView(instant) {
   if (instant || viewY === null) { viewY = viewTarget; camera.setViewOffset(W, H, 0, viewY, W, H); }
   return (b - t) / H;
 }
+// Для проверки: window.__view() — куда сдвинуто «окно» камеры и где карточка.
+window.__view = () => ({ viewY, viewTarget, top: topEl.getBoundingClientRect().bottom, card: cardEl.getBoundingClientRect().top, H: innerHeight, min: document.body.classList.contains('min-ui') });
 // Каждый кадр «окно» камеры плавно подъезжает к нужному месту.
 function easeView() {
   if (viewY === null || Math.abs(viewTarget - viewY) < 0.5) return;
@@ -568,7 +571,7 @@ function viewDistance(free) {
   const v = THREE.MathUtils.degToRad(camera.fov / 2);
   const vf = Math.atan(Math.tan(v) * free);
   const hf = Math.atan(Math.tan(v) * camera.aspect * 0.72);   // по бокам остаётся место для подписей
-  return spec.radius * 1.05 / Math.sin(Math.min(vf, hf));
+  return spec.radius * 1.15 / Math.sin(Math.min(vf, hf));   // с запасом: высокие образцы (цитоскелет) не упираются в верхнюю панель
 }
 
 function crossfade(swap) {
@@ -608,7 +611,7 @@ async function showSpecimen(id) {
   scene.add(spec.group);
   top('Образец ' + code(ATLAS[id]), 'Вращайте образец пальцем. Подписи следуют за моделью.');   // название — в карточке
   showCard(id);
-  const free = fitView();
+  const free = fitView(true);   // новый образец — сразу в нужное место, без подъезда
   const d = viewDistance(free);
   controls.target.copy(spec.center);
   camera.position.set(...(ATLAS[id].view || [0.35, 0.55, 1])).normalize().multiplyScalar(d).add(spec.center);
