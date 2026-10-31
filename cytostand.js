@@ -78,6 +78,7 @@ export async function createCytoStand() {
   }
   const at = (i, k) => i * (MT_DIMERS + EXTRA) + k;
   const put = (idx, pos, rot, s = 1, tint = 1) => {
+    if (s < 0.04) s = 0;   // почти нулевой размер — сразу ноль: иначе на телефонах мигают чёрные квадраты
     m4.compose(pos, rot, new THREE.Vector3(s, s, s));
     alpha.setMatrixAt(idx, m4); beta.setMatrixAt(idx, m4);
     const c = white.clone().multiplyScalar(tint);
@@ -157,7 +158,8 @@ export async function createCytoStand() {
       // 0–0,45 — подплывает, 0,45–0,55 — касается, 0,55–1 — уплывает.
       const pos = f < 0.45 ? far1.lerp(near, f / 0.45) : f < 0.55 ? near : near.lerp(far2, (f - 0.55) / 0.45);
       pos.add(jitter(j * 3, t, f > 0.45 && f < 0.55 ? 0.3 : 1.1));
-      const s = on ? Math.min(1, f * 6, (1 - f) * 6) : 0;
+      let s = on ? Math.min(1, f * 6, (1 - f) * 6) : 0;
+      if (s < 0.04) s = 0;
       m4.compose(pos, tumble(j + 50, 1 - t * 0.16), new THREE.Vector3(s, s, s));
       freeA.setMatrixAt(j, m4); freeB.setMatrixAt(j, m4);
       const c = white.clone().multiplyScalar(1.9);

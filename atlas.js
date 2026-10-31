@@ -538,7 +538,13 @@ function showCard(id) {
 let viewY = null, viewTarget = 0;
 function fitView(instant) {
   const W = innerWidth, H = innerHeight;
-  if (!spec || mode === 'cell') { camera.clearViewOffset(); viewY = null; return; }
+  if (!spec || mode === 'cell') {
+    // В обзоре клетки «окно» сдвигается только в режиме «Следить»: участник держится посередине
+    // между верхней панелью и панелью «Жизни клетки», уехавшей вниз.
+    viewTarget = follow && life && life.isOn() ? H / 2 - (topEl.getBoundingClientRect().bottom + lifeEl.getBoundingClientRect().top) / 2 : 0;
+    if (viewY === null) { viewY = viewTarget; camera.setViewOffset(W, H, 0, viewY, W, H); }
+    return;
+  }
   const t = document.body.classList.contains('min-ui') ? 10 : topEl.getBoundingClientRect().bottom;
   const b = cardEl.getBoundingClientRect().top;
   viewTarget = H / 2 - (t + b) / 2;
@@ -656,6 +662,7 @@ function closeSpecimen() {
     mode = 'cell';
     cardEl.style.display = 'none';
     camera.clearViewOffset();
+    viewY = viewTarget = 0;
     controls.autoRotate = false;
     cell.group.visible = true;
     camera.position.copy(saved.pos);
@@ -754,7 +761,7 @@ followBtn.onclick = () => setFollow(!follow);
 
 // «Следить»: камера плавно подъезжает к главному участнику процесса и сопровождает его.
 // Вращать вокруг него пальцем по-прежнему можно.
-const FOLLOW_DIST = 2.2;
+const FOLLOW_DIST = 2.9;   // чуть дальше: вокруг участника видно соседние органоиды
 function followCamera(dt) {
   const k = 1 - Math.exp(-dt * 2.5);
   const off = camera.position.clone().sub(controls.target);
@@ -825,12 +832,18 @@ renderer.setAnimationLoop(() => {
     if (fly.t === 1) { const then = fly.then; fly = null; then(); }
   }
   // «Жизнь клетки» идёт только в обзоре; панель с кнопкой видна только там.
+  // В режиме «Следить» панель плавно уезжает вниз экрана и не закрывает участника.
   if (life) {
     lifeEl.style.display = mode === 'cell' ? 'block' : 'none';
+    const down = follow && life.isOn();
+    const want = down ? innerHeight - 22 - lifeEl.offsetHeight : 118;
+    if (Math.abs((parseFloat(lifeEl.style.top) || 118) - want) > 1) lifeEl.style.top = want + 'px';
+    if (!down && viewY) fitView();   // после «Обзора» «окно» плавно возвращается на место
     if (cell.group.visible && life.isOn()) {
       life.update(hold ? 0 : dt, camera);
       showStatus(life.status(), lifeEl.querySelector('.status'));
       if (follow && !fly) followCamera(dt);
+      fitView();
     }
   }
   // Клетка: органоиды покачиваются, выбранный пульсирует ярче.

@@ -6,8 +6,8 @@
   <title>Атлас клетки — 3D</title>
   <meta name="author" content="Гинько Егор Дмитриевич, учитель биологии и химии, ГУО «Боровская средняя школа имени Г.К. Жукова Лепельского района»">
   <meta name="copyright" content="© 2026 Гинько Егор Дмитриевич. Все права защищены.">
-  <link rel="stylesheet" href="level.css?v=0.22">
-  <script src="level.js?v=0.22"></script>
+  <link rel="stylesheet" href="level.css?v=0.23">
+  <script src="level.js?v=0.23"></script>
   <style>
     /* «Биотех»: био-неон + интерфейс лаборатории будущего. Панели в форме листа (два угла
        скруглены, два почти острые), шестигранные «соты», узлы выносок пульсируют как живые. */
@@ -46,7 +46,7 @@
       text-shadow: 0 0 8px var(--acid); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 20; }
     #hold.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     /* «Жизнь клетки»: кнопка и строка-репортаж под верхней панелью. */
-    #life { position: fixed; left: 10px; right: 10px; top: 118px; padding: 8px 12px; display: none; }
+    #life { position: fixed; left: 10px; right: 10px; top: 118px; padding: 8px 12px; display: none; transition: top .6s cubic-bezier(.45, 0, .25, 1); }
     #life:not(.on) { left: auto; padding: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; }
     #life:not(.on)::before, #life:not(.on)::after { display: none; }
     #life .go { width: auto; min-height: 36px; padding: 0 16px; font-size: 14px; }
@@ -209,21 +209,21 @@
     { "imports": {
       "three": "./lib/three.module.js",
       "three/addons/": "./lib/addons/",
-      "./atlas.js": "./atlas.js?v=0.22",
-      "./atlas-data.js": "./atlas-data.js?v=0.22",
-      "./cell.js": "./cell.js?v=0.22",
-      "./cellmodel.js": "./cellmodel.js?v=0.22",
-      "./chromosome.js": "./chromosome.js?v=0.22",
-      "./cytoskeleton.js": "./cytoskeleton.js?v=0.22",
-      "./cytostand.js": "./cytostand.js?v=0.22",
-      "./life.js": "./life.js?v=0.22",
-      "./helix.js": "./helix.js?v=0.22",
-      "./membrane.js": "./membrane.js?v=0.22",
-      "./molecules.js": "./molecules.js?v=0.22",
-      "./nucleus.js": "./nucleus.js?v=0.22",
-      "./organelles.js": "./organelles.js?v=0.22",
-      "./style.js": "./style.js?v=0.22",
-      "./style-test.js": "./style-test.js?v=0.22"
+      "./atlas.js": "./atlas.js?v=0.23",
+      "./atlas-data.js": "./atlas-data.js?v=0.23",
+      "./cell.js": "./cell.js?v=0.23",
+      "./cellmodel.js": "./cellmodel.js?v=0.23",
+      "./chromosome.js": "./chromosome.js?v=0.23",
+      "./cytoskeleton.js": "./cytoskeleton.js?v=0.23",
+      "./cytostand.js": "./cytostand.js?v=0.23",
+      "./life.js": "./life.js?v=0.23",
+      "./helix.js": "./helix.js?v=0.23",
+      "./membrane.js": "./membrane.js?v=0.23",
+      "./molecules.js": "./molecules.js?v=0.23",
+      "./nucleus.js": "./nucleus.js?v=0.23",
+      "./organelles.js": "./organelles.js?v=0.23",
+      "./style.js": "./style.js?v=0.23",
+      "./style-test.js": "./style-test.js?v=0.23"
     } }
   </script>
 </head>
@@ -240,6 +240,6 @@
   <div id="fade"></div>
   <button id="back" type="button">← Меню</button>
   <button id="glow" type="button">✦</button>
-  <script type="module" src="atlas.js?v=0.22"></script>
+  <script type="module" src="atlas.js?v=0.23"></script>
 </body>
 </html>
