@@ -6,8 +6,8 @@
   <title>Атлас клетки — 3D</title>
   <meta name="author" content="Гинько Егор Дмитриевич, учитель биологии и химии, ГУО «Боровская средняя школа имени Г.К. Жукова Лепельского района»">
   <meta name="copyright" content="© 2026 Гинько Егор Дмитриевич. Все права защищены.">
-  <link rel="stylesheet" href="level.css?v=0.21">
-  <script src="level.js?v=0.21"></script>
+  <link rel="stylesheet" href="level.css?v=0.22">
+  <script src="level.js?v=0.22"></script>
   <style>
     /* «Биотех»: био-неон + интерфейс лаборатории будущего. Панели в форме листа (два угла
        скруглены, два почти острые), шестигранные «соты», узлы выносок пульсируют как живые. */
@@ -38,6 +38,38 @@
       text-shadow: 0 0 10px rgb(var(--c-rgb) / 0.6); margin-top: 2px; }
     #top span { color: #cfeff7; font-size: 14px; }
     @keyframes beat { 0%, 100% { opacity: 1; transform: scale(1); } 15% { transform: scale(1.5); } 30% { opacity: .5; transform: scale(1); } }
+
+    /* Пауза удержанием пальца: подсказка по центру сверху, пока палец прижат. */
+    body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    #hold { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.9); padding: 8px 14px; border-radius: 14px 4px 14px 4px;
+      background: #04060dcc; border: 1px solid var(--acid); color: var(--acid); font: 700 13px var(--mono); letter-spacing: .06em;
+      text-shadow: 0 0 8px var(--acid); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 20; }
+    #hold.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    /* «Жизнь клетки»: кнопка и строка-репортаж под верхней панелью. */
+    #life { position: fixed; left: 10px; right: 10px; top: 118px; padding: 8px 12px; display: none; }
+    #life:not(.on) { left: auto; padding: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; }
+    #life:not(.on)::before, #life:not(.on)::after { display: none; }
+    #life .go { width: auto; min-height: 36px; padding: 0 16px; font-size: 14px; }
+    #life .procs { display: none; clear: both; gap: 6px; margin: 2px 0 6px; }
+    #life.on .procs { display: flex; }
+    #life .procs button { flex: 1; min-height: 30px; border: 1px solid var(--line); background: #061a22; color: var(--dim);
+      border-radius: 10px 3px 10px 3px; font: 600 12.5px system-ui, sans-serif; cursor: pointer; }
+    #life .procs button.on { color: #02130a; background: var(--cyan); border-color: var(--cyan); }
+    #life .procs button.small { flex: 0 0 auto; padding: 0 9px; color: var(--acid); border-color: rgb(var(--a-rgb) / .5); }
+    #life .procs button.small.on { color: #02130a; background: var(--acid); border-color: var(--acid); }
+    #life .follow { display: none; }
+    #life.on .follow { display: block; }
+    #life .follow.active { color: #02130a; background: var(--acid); border-color: var(--acid); }
+    #life.on .go { float: right; min-height: 30px; padding: 0 10px; margin: 0 0 4px 8px; font-size: 12px; background: #061a22; color: var(--acid); border: 1px solid var(--line); box-shadow: none; }
+    #life .status .sh { font: 700 12px/1.3 var(--mono); color: var(--acid); text-shadow: 0 0 6px rgb(var(--a-rgb) / .6); }
+    #life .status .sh::before { content: "◉ "; animation: beat 1.4s infinite; display: inline-block; }
+    #life .status .sd { margin-top: 3px; font-size: 12.5px; line-height: 1.35; color: #d8f6fc; animation: focus .8s ease-out; }
+    #life .status .sp { display: flex; align-items: center; gap: 5px; margin-top: 6px; }
+    #life .status .sp i { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--acid); opacity: .5; }
+    #life .status .sp i.done { background: var(--acid); opacity: .5; }
+    #life .status .sp i.on { background: var(--acid); opacity: 1; box-shadow: 0 0 8px var(--acid); }
+    #life .status .sp b { flex: 1; height: 3px; margin-left: 4px; border-radius: 2px; background: rgb(var(--a-rgb) / .15); overflow: hidden; }
+    #life .status .sp u { display: block; height: 100%; width: 0; background: var(--acid); box-shadow: 0 0 6px var(--acid); }
 
     /* Карточка выбранного органоида в обзоре клетки. */
     #pick { position: fixed; left: 10px; right: 10px; bottom: 24px; padding: 12px 14px; display: none; }
@@ -177,20 +209,21 @@
     { "imports": {
       "three": "./lib/three.module.js",
       "three/addons/": "./lib/addons/",
-      "./atlas.js": "./atlas.js?v=0.21",
-      "./atlas-data.js": "./atlas-data.js?v=0.21",
-      "./cell.js": "./cell.js?v=0.21",
-      "./cellmodel.js": "./cellmodel.js?v=0.21",
-      "./chromosome.js": "./chromosome.js?v=0.21",
-      "./cytoskeleton.js": "./cytoskeleton.js?v=0.21",
-      "./cytostand.js": "./cytostand.js?v=0.21",
-      "./helix.js": "./helix.js?v=0.21",
-      "./membrane.js": "./membrane.js?v=0.21",
-      "./molecules.js": "./molecules.js?v=0.21",
-      "./nucleus.js": "./nucleus.js?v=0.21",
-      "./organelles.js": "./organelles.js?v=0.21",
-      "./style.js": "./style.js?v=0.21",
-      "./style-test.js": "./style-test.js?v=0.21"
+      "./atlas.js": "./atlas.js?v=0.22",
+      "./atlas-data.js": "./atlas-data.js?v=0.22",
+      "./cell.js": "./cell.js?v=0.22",
+      "./cellmodel.js": "./cellmodel.js?v=0.22",
+      "./chromosome.js": "./chromosome.js?v=0.22",
+      "./cytoskeleton.js": "./cytoskeleton.js?v=0.22",
+      "./cytostand.js": "./cytostand.js?v=0.22",
+      "./life.js": "./life.js?v=0.22",
+      "./helix.js": "./helix.js?v=0.22",
+      "./membrane.js": "./membrane.js?v=0.22",
+      "./molecules.js": "./molecules.js?v=0.22",
+      "./nucleus.js": "./nucleus.js?v=0.22",
+      "./organelles.js": "./organelles.js?v=0.22",
+      "./style.js": "./style.js?v=0.22",
+      "./style-test.js": "./style-test.js?v=0.22"
     } }
   </script>
 </head>
@@ -200,12 +233,13 @@
   <svg id="leaders"></svg>
   <div id="tags"></div>
   <div id="top" class="leaf"></div>
+  <div id="life" class="leaf"></div>
   <div id="pick" class="leaf"></div>
   <div id="card" class="leaf"></div>
   <div id="wm">© 2026 Гинько Е.Д. · Все права защищены</div>
   <div id="fade"></div>
   <button id="back" type="button">← Меню</button>
   <button id="glow" type="button">✦</button>
-  <script type="module" src="atlas.js?v=0.21"></script>
+  <script type="module" src="atlas.js?v=0.22"></script>
 </body>
 </html>

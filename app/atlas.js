@@ -9,6 +9,7 @@ import { createCell } from './cellmodel.js';
 import { loadModel, neonize, PARTS } from './organelles.js';
 import { createMembrane } from './membrane.js';
 import { createCytoStand } from './cytostand.js';
+import { createLife } from './life.js';
 import { ATLAS, TOTAL } from './atlas-data.js';
 
 // «Атлас клетки»: обзор животной клетки и органоиды крупным планом на стенде
@@ -143,6 +144,9 @@ createCell().then(c => {
   cell = c;
   scene.add(cell.group);
   addLights(cell.group);
+  life = createLife(cell);
+  cell.group.add(life.group);
+  lifeEl.style.display = 'block';
   camera.position.set(0.6, 3.6, camera.aspect < 1 ? 22 : 10.5);
   remember();
   cellHome = home;
@@ -465,12 +469,13 @@ function showCard(id) {
     cardEl.insertAdjacentHTML('afterbegin', '<button type="button" class="pause" aria-label="Пауза">❚❚</button>');
     const pause = cardEl.querySelector('.pause');
     const showPause = () => {
-      const p = spec.built.isPaused();
+      const p = !!spec.userPaused;
       pause.textContent = p ? '▶' : '❚❚';
       pause.ariaLabel = p ? 'Продолжить' : 'Пауза';
       pause.classList.toggle('on', p);
     };
-    pause.onclick = e => { e.stopPropagation(); spec.built.setPaused(!spec.built.isPaused()); showPause(); };
+    pause.onclick = e => { e.stopPropagation(); spec.userPaused = !spec.userPaused; spec.built.setPaused(spec.userPaused); showPause(); };
+    spec.userPaused = false;
     spec.built.setPaused(false);
     showPause();
     showStatus(spec.built.status());   // репортаж сразу, чтобы масштаб кадра учитывал его высоту
@@ -673,6 +678,7 @@ controls.addEventListener('start', () => { controls.autoRotate = false; });
 // чтобы его нельзя было «потерять» за краем экрана.
 const CELL_CENTER = new THREE.Vector3();
 controls.addEventListener('change', () => {
+  if (follow && mode === 'cell') return;   // в режиме «Следить» камера сама идёт за участником
   const c = spec && mode === 'specimen' ? spec.center : CELL_CENTER;
   const max = spec && mode === 'specimen' ? spec.radius * 1.1 : 3.5;
   const off = controls.target.clone().sub(c);
@@ -692,8 +698,7 @@ function resetView() {
 
 // Строка-репортаж образца: заголовок этапа «расшифровывается», объяснение проявляется,
 // точки показывают номер этапа, полоска — сколько этапу осталось.
-function showStatus(s) {
-  const el = cardEl.querySelector('.status');
+function showStatus(s, el = cardEl.querySelector('.status')) {
   if (!el) return;
   if (el.dataset.head !== s.head) {
     el.dataset.head = s.head;
@@ -701,11 +706,82 @@ function showStatus(s) {
       (s.total ? '<div class="sp">' + Array.from({ length: s.total }, (_, i) => '<i' + (i === s.step ? ' class="on"' : i < s.step ? ' class="done"' : '') + '></i>').join('') +
         '<b><u></u></b></div>' : '');
     decode(el.querySelector('.sh'), s.head, 450);
-    fitView();
+    if (el.closest('#card')) fitView();
   }
   const bar = el.querySelector('.sp u');
   if (bar) bar.style.width = (s.frac * 100).toFixed(1) + '%';
 }
+
+// ---------- «Жизнь клетки» ----------
+// Кнопка под верхней панелью включает процессы в обзоре клетки; строка-репортаж — там же.
+let life = null;
+const lifeEl = $('life');
+lifeEl.innerHTML = '<button type="button" class="go">▶ Жизнь клетки</button>' +
+  '<button type="button" class="go follow">◎ Следить</button><div class="procs"></div><div class="status"></div>';
+const [lifeBtn, followBtn] = lifeEl.querySelectorAll('button');
+// Выбор процесса: играет один, с начала.
+function showProcs() {
+  const box = lifeEl.querySelector('.procs');
+  box.innerHTML = life.processes.map(p => '<button type="button" data-p="' + p.id + '" class="' + (p.small ? 'small' : '') + (p.id === life.getProcess() ? ' on' : '') + '">' + p.name + '</button>').join('');
+  box.querySelectorAll('button').forEach(b => {
+    b.onclick = () => {
+      life.setProcess(b.dataset.p);
+      const st = lifeEl.querySelector('.status');
+      st.innerHTML = ''; delete st.dataset.head;
+      showProcs();
+    };
+  });
+}
+let follow = false;
+function setFollow(on) {
+  follow = on;
+  followBtn.classList.toggle('active', on);
+  followBtn.textContent = on ? '◎ Обзор' : '◎ Следить';
+  controls.autoRotate = false;
+  controls.minDistance = on ? 0.8 : 3;
+  if (!on && cellHome) flyTo(cellHome.pos.clone(), cellHome.target.clone(), 1.2, () => { controls.enabled = true; });
+}
+lifeBtn.onclick = () => {
+  life.setOn(!life.isOn());
+  showProcs();
+  lifeEl.classList.toggle('on', life.isOn());
+  lifeBtn.textContent = life.isOn() ? '■ Стоп' : '▶ Жизнь клетки';
+  const st = lifeEl.querySelector('.status');
+  st.innerHTML = ''; delete st.dataset.head;
+  if (!life.isOn() && follow) setFollow(false);
+};
+followBtn.onclick = () => setFollow(!follow);
+
+// «Следить»: камера плавно подъезжает к главному участнику процесса и сопровождает его.
+// Вращать вокруг него пальцем по-прежнему можно.
+const FOLLOW_DIST = 2.2;
+function followCamera(dt) {
+  const k = 1 - Math.exp(-dt * 2.5);
+  const off = camera.position.clone().sub(controls.target);
+  const goal = controls.target.clone().lerp(life.focus(), k);
+  camera.position.copy(goal).add(off.setLength(THREE.MathUtils.lerp(off.length(), FOLLOW_DIST, k)));
+  controls.target.copy(goal);
+}
+
+// Удержание пальца (или кнопки мыши) в любом месте экрана — пауза: анимации стоят, пока палец
+// прижат, отпустили — идут дальше. Короткое касание и вращение работают как раньше.
+let hold = false, holdTimer = 0, holdStart = null;
+const holdEl = document.createElement('div');
+holdEl.id = 'hold';
+holdEl.textContent = '❚❚ Пауза — отпустите палец';
+document.body.append(holdEl);
+addEventListener('pointerdown', e => {
+  holdStart = [e.clientX, e.clientY];
+  clearTimeout(holdTimer);
+  holdTimer = setTimeout(() => { hold = true; holdEl.classList.add('on'); }, 350);
+});
+addEventListener('pointermove', e => {
+  if (holdStart && !hold && Math.hypot(e.clientX - holdStart[0], e.clientY - holdStart[1]) > 12) clearTimeout(holdTimer);
+});
+const release = () => { clearTimeout(holdTimer); holdStart = null; hold = false; holdEl.classList.remove('on'); };
+addEventListener('pointerup', release);
+addEventListener('pointercancel', release);
+addEventListener('contextmenu', e => e.preventDefault());   // долгое нажатие не открывает меню браузера
 
 // ---------- касания ----------
 
@@ -748,18 +824,31 @@ renderer.setAnimationLoop(() => {
     controls.target.lerpVectors(fly.fromTarget, fly.toTarget, k);
     if (fly.t === 1) { const then = fly.then; fly = null; then(); }
   }
+  // «Жизнь клетки» идёт только в обзоре; панель с кнопкой видна только там.
+  if (life) {
+    lifeEl.style.display = mode === 'cell' ? 'block' : 'none';
+    if (cell.group.visible && life.isOn()) {
+      life.update(hold ? 0 : dt, camera);
+      showStatus(life.status(), lifeEl.querySelector('.status'));
+      if (follow && !fly) followCamera(dt);
+    }
+  }
   // Клетка: органоиды покачиваются, выбранный пульсирует ярче.
   if (cell && cell.group.visible) {
     cell.update(t);
     for (const id in cell.parts) {
       const k = id === selected ? 1.5 + 0.4 * Math.sin(t * 5) : 1;
-      for (const m of cell.parts[id].materials) if (m.uniforms) m.uniforms.strength.value = (m.userData.base ?? 1) * k;
+      const kk = k * (life ? life.glow(id) : 1);
+      for (const m of cell.parts[id].materials) if (m.uniforms) m.uniforms.strength.value = (m.userData.base ?? 1) * kk;
     }
   }
   easeView();
   if (spec) {
     spec.base.update(t, spec.height);
-    if (spec.built) spec.built.update(t);
+    if (spec.built) {
+      if (spec.built.setPaused) spec.built.setPaused(hold || spec.userPaused);   // удержание пальца тоже ставит на паузу
+      spec.built.update(t);
+    }
     // Строка-репортаж: при смене события — «расшифровка» нового текста.
     if (spec.built && spec.built.status) showStatus(spec.built.status());
   }

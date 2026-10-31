@@ -33,7 +33,9 @@ function rng(seed) {
 
 // cell — полуоси клетки, nucleus — { center, r }, centrosome — точка клеточного центра,
 // inCut(p) — лежит ли точка в вырезе мембраны (там нитей нет, чтобы не закрывать обзор).
-export function createCytoskeleton({ cell, nucleus, centrosome, inCut }) {
+// anchors — точки (центры митохондрий), через которые проходит своя микротрубочка:
+// по ней митохондрия ездит в «Жизни клетки».
+export function createCytoskeleton({ cell, nucleus, centrosome, inCut, anchors = [] }) {
   const rand = rng(31);
   const group = new THREE.Group();
   const dir = () => new THREE.Vector3(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1).normalize();
@@ -65,7 +67,7 @@ export function createCytoskeleton({ cell, nucleus, centrosome, inCut }) {
   const keepOut = nucleus.r * 1.75;
 
   // Микротрубочки: от клеточного центра к мембране, огибая ядро.
-  const mt = [];
+  const mt = [], mtCurves = [];
   for (let i = 0; i < 34; i++) {
     const d = dir();
     const end = shellHit(centrosome, d, 0.9);
@@ -78,8 +80,22 @@ export function createCytoskeleton({ cell, nucleus, centrosome, inCut }) {
     if (inCut(end)) continue;
     const curve = new THREE.CatmullRomCurve3(pts);
     mt.push(new THREE.TubeGeometry(curve, 36, 0.012, 5, false));
+    mtCurves.push(curve);
     hit(curve);
   }
+  // Микротрубочки через митохондрии: от клеточного центра через митохондрию дальше к мембране.
+  const mtAnchored = anchors.map(a => {
+    const d = a.clone().sub(centrosome).normalize();
+    const end = shellHit(a, d, 0.88);
+    const pts = [centrosome.clone(), avoid(centrosome.clone().lerp(a, 0.5), keepOut), a.clone(),
+      a.clone().lerp(end, 0.5), end];
+    const curve = new THREE.CatmullRomCurve3(pts);
+    mt.push(new THREE.TubeGeometry(curve, 40, 0.012, 5, false));
+    hit(curve);
+    let u = 0, best = Infinity;   // где на этой нити сейчас митохондрия
+    for (let k = 0; k <= 200; k++) { const dd = curve.getPoint(k / 200).distanceTo(a); if (dd < best) { best = dd; u = k / 200; } }
+    return { curve, u };
+  });
   mesh(mt, 'cyto_mt');
 
   // Актиновый кортекс: точки под мембраной, каждая связана с ближайшими соседями.
@@ -131,5 +147,7 @@ export function createCytoskeleton({ cell, nucleus, centrosome, inCut }) {
   const proxy = new THREE.Mesh(mergeGeometries(hits), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
   proxy.userData.part = 'cyto_hit';
   group.add(proxy);
+  group.userData.mt = mtCurves;   // пути микротрубочек — по ним «едут» пузырьки в «Жизни клетки»
+  group.userData.mtAnchored = mtAnchored;   // нити через митохондрии (в том же порядке, что anchors)
   return group;
 }

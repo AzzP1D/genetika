@@ -98,6 +98,7 @@ export async function createCell() {
   add('cytoskeleton', createCytoskeleton({
     cell: CELL, nucleus: { center: nucleus.position.clone(), r: Rn }, centrosome,
     inCut: p => Math.abs(p.x) < 2.6 && p.y > 0 && p.z > 0,   // вырез мембраны спереди сверху
+    anchors: parts.mito.objects.map(o => o.userData.base),   // через каждую митохондрию — своя нить
   }));
 
   const golgi = LAYOUT.find(l => l.id === 'golgi');
@@ -121,7 +122,7 @@ export async function createCell() {
       for (const o of parts[id].objects) o.position.y = o.userData.base.y + Math.sin(t * 0.7 + o.userData.phase) * 0.03;
     }
   }
-  return { group, parts, update };
+  return { group, parts, update, size: CELL };
 }
 
 
