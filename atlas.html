@@ -93,6 +93,35 @@
       .tabs button { transition: none; }
       #card.morph .tabs::after, #card ul.reveal { animation: none; }
     }
+    /* «Ручка» карточки: смахнуть вниз — свернуть до строки репортажа. */
+    #card { touch-action: pan-y; transition: max-height .5s ease; }
+    #card .grip { width: 44px; height: 4px; margin: -4px auto 8px; border-radius: 2px; background: var(--line); }
+    #card.min { max-height: none; overflow: hidden; padding-top: 10px; padding-bottom: 8px; }
+    #card.min > :not(.grip):not(.status):not(.pause) { display: none; }
+    #card.min:not(:has(.status)) > .head { display: flex; }
+    #card.min .status { margin: 0; }
+    #card.min .status .sd { display: none; }
+    #top { transition: transform .5s ease, opacity .5s ease; }
+    body.min-ui #top { transform: translateY(-130%); opacity: 0; pointer-events: none; }
+    #card .pause { position: absolute; top: 8px; right: 10px; width: 34px; height: 30px; padding: 0; border: 1px solid var(--line);
+      border-radius: 10px 3px 10px 3px; background: #061a22; color: var(--acid); font: 700 12px system-ui, sans-serif; cursor: pointer; }
+    #card .pause.on { background: var(--acid); color: #02130a; box-shadow: 0 0 12px rgb(var(--a-rgb) / .5); }
+    #card .status { padding-right: 42px; }
+    /* Кнопки анимаций образца и строка-репортаж биосканера. */
+    #card .status { margin: 0 0 8px; }
+    #card .status .sh { font: 700 12px/1.3 var(--mono); color: var(--acid); text-shadow: 0 0 6px rgb(var(--a-rgb) / .6); letter-spacing: .03em; }
+    #card .status .sh::before { content: "◉ "; animation: beat 1.4s infinite; display: inline-block; }
+    #card .status .sd { margin-top: 3px; min-height: 6.75em; font-size: 12.5px; line-height: 1.35; color: #d8f6fc; animation: focus .8s ease-out; }   /* высота на 5 строк — карточка и образец не прыгают при смене этапа */
+    #card .status .sp { display: flex; align-items: center; gap: 5px; margin-top: 6px; }
+    #card .status .sp i { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--acid); opacity: .5; }
+    #card .status .sp i.done { background: var(--acid); opacity: .5; }
+    #card .status .sp i.on { background: var(--acid); opacity: 1; box-shadow: 0 0 8px var(--acid); }
+    #card .status .sp b { flex: 1; height: 3px; margin-left: 4px; border-radius: 2px; background: rgb(var(--a-rgb) / .15); overflow: hidden; }
+    #card .status .sp u { display: block; height: 100%; width: 0; background: var(--acid); box-shadow: 0 0 6px var(--acid); }
+    #card .modes { display: flex; gap: 6px; margin-bottom: 10px; }
+    #card .modes button { flex: 1; min-height: 36px; border: 1px solid var(--line); background: #061a22; color: var(--dim);
+      border-radius: 12px 3px 12px 3px; font: 600 13px system-ui, sans-serif; cursor: pointer; transition: background .4s, color .4s, box-shadow .4s; }
+    #card .modes button.on { color: #02130a; background: var(--acid); border-color: var(--acid); box-shadow: 0 0 14px rgb(var(--a-rgb) / .5); }
     #card li.sub { padding-left: 0; margin-top: 12px; color: #ff8fb0; font-weight: 700; letter-spacing: .04em; }
     #card li.sub::before { content: none; }
     #card li.trap::before { color: #ff5c8a; text-shadow: 0 0 6px #ff5c8a; }

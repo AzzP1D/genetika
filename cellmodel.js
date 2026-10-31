@@ -2,6 +2,7 @@
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { neon, halo, motes } from './style.js';
 import { loadModel, neonize, PARTS } from './organelles.js';
+import { createCytoskeleton } from './cytoskeleton.js';
 
 // Животная клетка в разрезе, собранная из собственных моделей органоидов.
 // Мембрана — толстая светящаяся «стеклянная» оболочка; спереди сверху — вырез со скруглёнными углами.
@@ -92,6 +93,13 @@ export async function createCell() {
   add('er', er);
   er.userData.phase = nucleus.userData.phase;
 
+  // Цитоскелет: микротрубочки от клеточного центра, актиновый кортекс, промежуточные филаменты вокруг ядра.
+  const centrosome = new THREE.Vector3(...LAYOUT.find(l => l.id === 'centrioles').at);
+  add('cytoskeleton', createCytoskeleton({
+    cell: CELL, nucleus: { center: nucleus.position.clone(), r: Rn }, centrosome,
+    inCut: p => Math.abs(p.x) < 2.6 && p.y > 0 && p.z > 0,   // вырез мембраны спереди сверху
+  }));
+
   const golgi = LAYOUT.find(l => l.id === 'golgi');
   add('ribosomes', ribosomes(90, [[nucleus.position, Rn + 0.65], [new THREE.Vector3(...golgi.at), 0.9]]));
   // Мембрана — толстая стеклянная оболочка из Blender со скруглённым вырезом.
@@ -109,7 +117,7 @@ export async function createCell() {
   function update(t) {
     dust.update(t);
     for (const id in parts) {
-      if (id === 'membrane' || id === 'ribosomes') continue;
+      if (id === 'membrane' || id === 'ribosomes' || id === 'cytoskeleton') continue;
       for (const o of parts[id].objects) o.position.y = o.userData.base.y + Math.sin(t * 0.7 + o.userData.phase) * 0.03;
     }
   }

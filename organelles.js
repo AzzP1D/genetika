@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { neon } from './style.js';
 import { MEMBRANE_PARTS } from './membrane.js';
+import { CYTO_PARTS } from './cytoskeleton.js';
 
 // Модели органоидов из Blender и их стиль «био-неон» по именам материалов:
 // цвет, стекло ли это (мембрана), сила свечения. Общие для образцов и собранной клетки.
@@ -45,6 +46,7 @@ export const PARTS = {
   cell_membrane:     { color: 0x00e5ff, glass: true, glow: 1.6, power: 3.0, body: 0.0, strength: 0.2 },
   cell_membrane_rim: { color: 0x7ff9ff, glass: true, glow: 1.2, power: 1.5, body: 0.35, strength: 0.45 },
   ...MEMBRANE_PARTS,
+  ...CYTO_PARTS,
 };
 
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);

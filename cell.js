@@ -20,8 +20,9 @@ const ORGANELLES = {
   mito:       { name: 'Митохондрии', info: 'Энергетические станции клетки: синтез АТФ. Имеют собственную ДНК.' },
   centrioles: { name: 'Центриоли', info: 'Участвуют в образовании веретена деления.' },
   lysosomes:  { name: 'Лизосомы', info: 'Содержат ферменты, расщепляющие вещества.' },
+  cytoskeleton: { name: 'Цитоскелет', info: 'Каркас клетки из белковых нитей: микротрубочки, микрофиламенты и промежуточные филаменты.' },
 };
-const BACKDROP = ['membrane'];   // прозрачная оболочка: выбирается, только если под ней ничего нет
+const BACKDROP = ['cytoskeleton', 'membrane'];   // фон: выбирается, только если под пальцем нет органоида
 
 // Мини-задание: где удваивается ДНК клетки.
 const TASK = {
@@ -329,7 +330,7 @@ renderer.domElement.addEventListener('pointerup', e => {
   if (mode === 'helix') return helix.tap(ray);
   if (!cell) return;
   const ids = ray.intersectObject(cell.group, true).map(h => h.object.userData.id).filter(Boolean);
-  choose(ids.find(id => !BACKDROP.includes(id)) || ids[0] || null);
+  choose(ids.find(id => !BACKDROP.includes(id)) || BACKDROP.map(b => ids.find(id => id === b)).find(Boolean) || null);
 });
 
 // ---------- анимация ----------
