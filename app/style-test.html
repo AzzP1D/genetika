@@ -21,8 +21,27 @@
     #modes button.on { background: #0b3240; border-color: #7ff7ff; color: #fff; box-shadow: 0 0 14px #2ee8ff55; }
     #back { position: fixed; right: 20px; top: 20px; color: #7ff7ff; text-decoration: none; font-size: 14px; }
   </style>
+  <!-- Метка ?v= у своих модулей: после обновления сайта браузер берёт новые файлы, а не старые из кэша.
+       Номер меняется командой node tools/version.mjs <версия>. -->
   <script type="importmap">
-    { "imports": { "three": "./lib/three.module.js", "three/addons/": "./lib/addons/" } }
+    { "imports": {
+      "three": "./lib/three.module.js",
+      "three/addons/": "./lib/addons/",
+      "./atlas.js": "./atlas.js?v=0.20",
+      "./atlas-data.js": "./atlas-data.js?v=0.20",
+      "./cell.js": "./cell.js?v=0.20",
+      "./cellmodel.js": "./cellmodel.js?v=0.20",
+      "./chromosome.js": "./chromosome.js?v=0.20",
+      "./cytoskeleton.js": "./cytoskeleton.js?v=0.20",
+      "./cytostand.js": "./cytostand.js?v=0.20",
+      "./helix.js": "./helix.js?v=0.20",
+      "./membrane.js": "./membrane.js?v=0.20",
+      "./molecules.js": "./molecules.js?v=0.20",
+      "./nucleus.js": "./nucleus.js?v=0.20",
+      "./organelles.js": "./organelles.js?v=0.20",
+      "./style.js": "./style.js?v=0.20",
+      "./style-test.js": "./style-test.js?v=0.20"
+    } }
   </script>
 </head>
 <body>
@@ -31,6 +50,6 @@
     Энергетическая станция клетки: здесь синтезируется АТФ. Внутренняя мембрана образует извилистые складки — кристы. В матриксе — собственные рибосомы и кольцевая ДНК.</div>
   <div id="modes"><button data-m="neon" class="on">Био-неон</button><button data-m="toon">Как сейчас</button></div>
   <a id="back" href="index.html">← Меню</a>
-  <script type="module" src="style-test.js"></script>
+  <script type="module" src="style-test.js?v=0.20"></script>
 </body>
 </html>
