@@ -282,7 +282,7 @@ export function createLife(cell) {
       const u = back ? 1 - f : f;
       m.position.copy(curve.getPoint(Math.min(1, Math.max(0, u))));
       const s = Math.min(1, f * 8, (1 - f) * 8);
-      m.scale.setScalar(Math.max(0.01, s));
+      m.scale.setScalar(s);
     };
     if (c < 8) { outV.forEach((v, i) => ride(v, picks[i], ease((c - i * 0.6) / 6.5), false)); focus = outV[0]; }
     else if (c < 16) { inV.forEach((v, i) => picks[3 + i] && ride(v, picks[3 + i], ease((c - 8 - i * 0.6) / 6.5), true)); focus = inV[0]; }
@@ -366,6 +366,11 @@ export function createLife(cell) {
       local = (local + dt) % PROCESSES[current].cycle;
       focus = current === 'protein' ? updateProtein(local) : current === 'pino' ? updatePino(local)
         : current === 'rails' ? updateRails(local) : (updateEnergy(local), mitoFocus);
+    }
+    // Почти нулевой размер (начало роста, конец исчезновения) не рисуем: на телефонах такие
+    // объекты дают «битые» точки, и свечение превращает их в мигающие чёрные квадраты.
+    for (const o of [...proteinParts, ...pinoParts, ...railParts, ...sparks, ...phosphates]) {
+      if (o.visible && Math.min(o.scale.x, o.scale.y, o.scale.z) < 0.04) o.visible = false;
     }
     // Кольцо-маркер: обводит главного участника и всегда смотрит на зрителя (в «Всё» — нет: участников много).
     ring.visible = !!focus && current !== 'all';

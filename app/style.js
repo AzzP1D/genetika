@@ -100,6 +100,10 @@ const neonVertex = /* glsl */`
   varying vec3 vView;
   varying vec3 vTint;
   #include <fog_pars_vertex>
+  // Безопасная нормализация: у объекта почти нулевого размера (в анимациях) нормаль вырождается,
+  // и на телефонах с пониженной точностью получаются «битые» точки (NaN) — свечение раздувает их
+  // в мигающие чёрные квадраты. Такой вектор заменяем запасным.
+  vec3 safeNorm(vec3 v) { float l = length(v); return l > 1e-5 && l < 1e5 ? v / l : vec3(0.0, 0.0, 1.0); }
   void main() {
     vTint = vec3(1.0);
     #ifdef USE_COLOR
@@ -115,8 +119,8 @@ const neonVertex = /* glsl */`
       n = mat3(instanceMatrix) * n;
     #endif
     vec4 mvPosition = modelViewMatrix * p;
-    vNormal = normalize(normalMatrix * n);
-    vView = normalize(-mvPosition.xyz);
+    vNormal = safeNorm(normalMatrix * n);
+    vView = safeNorm(-mvPosition.xyz);
     gl_Position = projectionMatrix * mvPosition;
     #include <fog_vertex>
   }`;
@@ -135,14 +139,18 @@ export function neon(color, { glow = 1.5, power = 2.2, body = 0.2, glass = false
       varying vec3 vView;
       varying vec3 vTint;
       #include <fog_pars_fragment>
+  // Безопасная нормализация: у объекта почти нулевого размера (в анимациях) нормаль вырождается,
+  // и на телефонах с пониженной точностью получаются «битые» точки (NaN) — свечение раздувает их
+  // в мигающие чёрные квадраты. Такой вектор заменяем запасным.
+  vec3 safeNorm(vec3 v) { float l = length(v); return l > 1e-5 && l < 1e5 ? v / l : vec3(0.0, 0.0, 1.0); }
       void main() {
         vec3 base = uColor * vTint;
-        vec3 n = normalize(vNormal);
-        float ndv = abs(dot(n, normalize(vView)));
+        vec3 n = safeNorm(vNormal);
+        float ndv = clamp(abs(dot(n, safeNorm(vView))), 0.0, 1.0);
         float rim = pow(1.0 - ndv, power);
         float light = 0.35 + 0.65 * max(dot(n, normalize(vec3(0.4, 0.7, 0.6))), 0.0);
         vec3 c = base * body * light + base * rim * glow + vec3(pow(rim, 6.0) * 0.35);
-        gl_FragColor = vec4(c * strength, 1.0);
+        gl_FragColor = vec4(clamp(c * strength, 0.0, 8.0), 1.0);   // без «бесконечной» яркости
         #include <colorspace_fragment>
         #include <fog_fragment>
       }`,
