@@ -8,6 +8,7 @@ import { addLights } from './style.js';
 import { createCell } from './cellmodel.js';
 import { loadModel, neonize, PARTS } from './organelles.js';
 import { createMembrane } from './membrane.js';
+import { createCytoStand } from './cytostand.js';
 import { ATLAS, TOTAL } from './atlas-data.js';
 
 // «Атлас клетки»: обзор животной клетки и органоиды крупным планом на стенде
@@ -16,7 +17,9 @@ import { ATLAS, TOTAL } from './atlas-data.js';
 const $ = id => document.getElementById(id);
 const topEl = $('top'), pickEl = $('pick'), cardEl = $('card'), fadeEl = $('fade');
 const svg = $('leaders'), tagsEl = $('tags');
-const BACKDROP = ['membrane'];   // прозрачная оболочка: выбирается, только если под ней ничего нет
+// Фон: прозрачная оболочка и сеть нитей выбираются, только если под пальцем нет органоида
+// (сначала цитоскелет, потом мембрана).
+const BACKDROP = ['cytoskeleton', 'membrane'];
 const code = a => a.code || 'ORG-' + String(a.no).padStart(2, '0');
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -30,7 +33,13 @@ scene.background = new THREE.Color(0x04060d);
 const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 60);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.enablePan = false;
+// Жесты: один палец — вращать, два пальца — приближать (щипок) и сдвигать вид.
+// Мышью: левая кнопка — вращать, колесо — приближать, правая — сдвигать.
+controls.enablePan = true;
+controls.screenSpacePanning = true;
+controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+let home = null;   // исходный вид — к нему возвращает двойное касание
+const remember = () => { home = { pos: camera.position.clone(), target: controls.target.clone() }; };
 
 // Свечение — как в уроке «Репликация»: только если видеокарта умеет, с кнопкой вкл/выкл
 // и автоматическим отключением при < 30 кадров/с.
@@ -135,6 +144,8 @@ createCell().then(c => {
   scene.add(cell.group);
   addLights(cell.group);
   camera.position.set(0.6, 3.6, camera.aspect < 1 ? 22 : 10.5);
+  remember();
+  cellHome = home;
   controls.minDistance = 3;
   controls.maxDistance = 26;
   $('loading').remove();
@@ -211,6 +222,7 @@ function anchorOn(root, part, dir) {
     if (o.isInstancedMesh) {
       const m = new THREE.Matrix4();
       for (let i = 0; i < o.count; i++) {
+        if (o.userData.anchorable && !o.userData.anchorable(i)) continue;
         o.getMatrixAt(i, m);
         v.setFromMatrixPosition(m).applyMatrix4(o.matrixWorld);
         const k = v.dot(d);
@@ -234,6 +246,11 @@ function pointsOn(root, part, max = 300) {
   const pts = [];
   root.traverse(o => {
     if (!o.isMesh || o.userData.part !== part) return;
+    if (o.isInstancedMesh) {   // много копий одной молекулы — берём центры копий
+      const m = new THREE.Matrix4();
+      for (let i = 0; i < o.count; i++) { o.getMatrixAt(i, m); pts.push(new THREE.Vector3().setFromMatrixPosition(m).applyMatrix4(o.matrixWorld)); }
+      return;
+    }
     const pos = o.geometry.attributes.position;
     const step = Math.max(1, Math.floor(pos.count / max));
     for (let i = 0; i < pos.count; i += step) pts.push(new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld));
@@ -260,7 +277,7 @@ const svgEl = (tag, attrs) => { const e = document.createElementNS(SVGNS, tag); 
 async function buildSpecimen(id) {
   const a = ATLAS[id];
   // Модель из Blender (общая с клеткой) или образец, построенный в коде.
-  const built = a.build === 'membrane' ? createMembrane() : null;
+  const built = a.build === 'membrane' ? createMembrane() : a.build === 'cytoskeleton' ? await createCytoStand() : null;
   const src = built ? built.group : (await loadModel(a.model)).clone(true);
   if (!built) {
     neonize(src);
@@ -289,7 +306,11 @@ async function buildSpecimen(id) {
   // цепь аминокислот целиком, чтобы «белок» не путался с одной «аминокислотой».
   const tags = (a.labels || []).map(l => {
     const pts = l.group ? pointsOn(holder, l.part) : null;
-    const at = l.group ? (pts.length ? pts.reduce((c, p) => c.add(p), new THREE.Vector3()).divideScalar(pts.length) : null) : anchorOn(holder, l.part, l.dir);
+    let obj = null;
+    if (l.follow) holder.traverse(o => { if (!obj && o.isMesh && o.userData.part === l.part) obj = o; });
+    const at = l.follow ? (obj ? new THREE.Vector3() : null)
+      : l.group ? (pts.length ? pts.reduce((c, p) => c.add(p), new THREE.Vector3()).divideScalar(pts.length) : null)
+      : anchorOn(holder, l.part, l.dir);
     if (!at) return null;
     const color = '#' + new THREE.Color(PARTS[l.part]?.color ?? 0x00e5ff).getHexString();
     const g = svgEl('g');
@@ -305,7 +326,7 @@ async function buildSpecimen(id) {
     el.innerHTML = Level.isOlymp() && l.olymp ? l.olymp : l.text;   // олимпиадный уровень — подпись глубже
     el.style.setProperty('--c', color);
     tagsEl.append(el);
-    return { at, pts, g, path, node, el };
+    return { at, pts, obj, g, path, node, el };
   }).filter(Boolean);
 
   return { id, group, base, built, height: half.y * 2 + 0.6, radius: Math.max(half.x, half.y, half.z), center: new THREE.Vector3(0, -0.15, 0), tags };
@@ -317,6 +338,8 @@ async function buildSpecimen(id) {
 const P = new THREE.Vector3(), C = new THREE.Vector3();
 const SLOPE = Math.tan(THREE.MathUtils.degToRad(35));   // наклон косого отрезка
 const SHELF = 22;                                        // длина горизонтальной полки, пикселей
+const HYST = 30;                                         // запас перед сменой стороны подписи, пикселей
+const EASE = 0.18;                                       // доля пути до нового места подписи за кадр
 function layoutTags() {
   if (!spec || mode !== 'specimen') { svg.style.display = tagsEl.style.display = 'none'; return; }
   svg.style.display = tagsEl.style.display = '';
@@ -327,9 +350,17 @@ function layoutTags() {
   const cx = (P.x + 1) / 2 * W, cy = (1 - P.y) / 2 * H;
   const sides = { l: [], r: [] };
   for (const t of spec.tags) {
+    if (t.obj) t.at.setFromMatrixPosition(t.obj.matrixWorld);   // подпись едет вместе с частью образца
+    t.hidden = !!t.obj && !t.obj.visible;
+    t.el.style.display = t.g.style.display = t.hidden ? 'none' : '';
+    if (t.hidden) continue;
     P.copy(t.at).project(camera);
     t.x = (P.x + 1) / 2 * W;
     t.y = (1 - P.y) / 2 * H;
+    // Сторона подписи (слева/справа) и направление выноски (вверх/вниз) меняются только с запасом:
+    // иначе у середины образца при вращении подпись «дребезжит», перескакивая туда-обратно.
+    if (!t.side || (t.side === 'l' && t.x > cx + HYST) || (t.side === 'r' && t.x < cx - HYST)) t.side = t.x < cx ? 'l' : 'r';
+    if (t.up === undefined || (t.up && t.y > cy + HYST) || (!t.up && t.y < cy - HYST)) t.up = t.y < cy;
     if (t.pts) {
       // Контур вокруг группы, раздутый на 9 пикселей; выноска выходит из его крайней точки
       // в сторону подписи.
@@ -337,8 +368,17 @@ function layoutTags() {
       const mx = t.x, my = t.y;
       const h = hull2d(t.pts.map(toScreen)).map(([x, y]) => { const d = Math.hypot(x - mx, y - my) || 1; return [x + (x - mx) / d * 9, y + (y - my) / d * 9]; });
       t.node.setAttribute('d', 'M' + h.map(([x, y]) => x.toFixed(1) + ' ' + y.toFixed(1)).join('L') + 'Z');
-      const left = mx < cx;
-      const tip = h.reduce((b, p) => (left ? p[0] < b[0] : p[0] > b[0]) ? p : b);
+      // Линия выходит из контура на уровне центра группы, со стороны подписи. Эта точка при
+      // вращении движется непрерывно (крайняя вершина контура перескакивала бы с угла на угол).
+      const left = t.side === 'l';
+      let tip = null;
+      for (let i = 0; i < h.length; i++) {
+        const [x1, y1] = h[i], [x2, y2] = h[(i + 1) % h.length];
+        if ((y1 - my) * (y2 - my) > 0 || y1 === y2) continue;
+        const x = x1 + (my - y1) / (y2 - y1) * (x2 - x1);
+        if (!tip || (left ? x < tip[0] : x > tip[0])) tip = [x, my];
+      }
+      tip ||= h.reduce((b, p) => (left ? p[0] < b[0] : p[0] > b[0]) ? p : b);
       t.x = tip[0]; t.y = tip[1];
     }
     // Скобки должны обнимать сам текст: ширина подписи — по самой длинной её строке.
@@ -350,11 +390,11 @@ function layoutTags() {
     }
     t.h = t.el.offsetHeight;
     t.w = t.el.offsetWidth;
-    t.ly = t.y + (t.y < cy ? -30 : 30);
+    t.ly = t.y + (t.up ? -30 : 30);
     // Точка на дальней стороне образца — выноска бледнее.
     C.copy(camera.position).sub(t.at);
     t.back = !t.pts && C.dot(t.at) < 0;
-    (t.x < cx ? sides.l : sides.r).push(t);
+    sides[t.side].push(t);
   }
   for (const s in sides) {
     // Подписи одной стороны не налезают друг на друга: раздвигаем сверху вниз, потом снизу вверх.
@@ -376,8 +416,16 @@ function layoutTags() {
         ex = t.x + k * Math.max(k * (end - k * SHELF - t.x), 8);
         if (k * (end - ex) < 8) end = ex + k * 8;
       }
+      // Подпись не прыгает на новое место, а плавно доезжает до него.
+      const left = Math.min(Math.max(s === 'l' ? end - t.w : end, 4), W - 4 - t.w);   // подпись всегда целиком на экране
+      t.sl = t.sl === undefined ? left : t.sl + (left - t.sl) * EASE;
+      t.sy = t.sy === undefined ? t.ly : t.sy + (t.ly - t.sy) * EASE;
+      end = s === 'l' ? t.sl + t.w : t.sl;
+      ex = t.x + k * Math.min(Math.max(Math.abs(t.sy - t.y) / SLOPE, 24), 80);
+      if (k * (end - ex) < 8) ex = end - k * 8;
+      t.ly = t.sy;
       t.el.className = 'tag ' + s;
-      t.el.style.left = Math.min(Math.max(s === 'l' ? end - t.w : end, 4), W - 4 - t.w) + 'px';   // подпись всегда целиком на экране
+      t.el.style.left = t.sl + 'px';
       t.el.style.top = (t.ly - 3) + 'px';
       t.el.style.opacity = t.back ? 0.5 : 1;
       t.g.style.opacity = t.back ? 0.4 : 1;
@@ -389,6 +437,7 @@ function layoutTags() {
 
 function showCard(id) {
   const a = ATLAS[id];
+  setCollapsed(false);
   const tabs = Object.keys(a.card);
   // Олимпиадный уровень: между обычными вкладками — маленькая кнопка ★. Она прячет
   // обычные вкладки и открывает одну олимпиадную: факты, ловушки и переход к молекуле.
@@ -403,6 +452,29 @@ function showCard(id) {
     '<div class="chips">' + (a.data || []).map(([k]) => '<div class="chip"><span>' + k + ': <em></em></span></div>').join('') + '</div>' +
     '<div class="tabs">' + tabs.map((t, i) => (t === 'Ошибка' ? star : '') + tab(t, i)).join('') + '</div><ul></ul>' +
     (ol && a.olymp.open ? '<button class="go more" type="button" hidden>' + a.olymp.openText + '</button>' : '');
+  // Образец с несколькими анимациями (цитоскелет): кнопки выбора и строка-репортаж над карточкой.
+  const anim = spec && spec.id === id && spec.built && spec.built.modes;
+  if (anim) {
+    cardEl.insertAdjacentHTML('afterbegin', '<div class="status"></div><div class="modes">' +
+      anim.map(m => '<button type="button" data-m="' + m.id + '">' + m.text + '</button>').join('') + '</div>');
+    const mbtns = [...cardEl.querySelectorAll('.modes button')];
+    const mark = () => mbtns.forEach(b => b.classList.toggle('on', b.dataset.m === spec.built.getMode()));
+    mbtns.forEach(b => { b.onclick = () => { spec.built.setMode(b.dataset.m); mark(); }; });
+    mark();
+    // Пауза: останавливает выбранную анимацию, вращать образец при этом можно.
+    cardEl.insertAdjacentHTML('afterbegin', '<button type="button" class="pause" aria-label="Пауза">❚❚</button>');
+    const pause = cardEl.querySelector('.pause');
+    const showPause = () => {
+      const p = spec.built.isPaused();
+      pause.textContent = p ? '▶' : '❚❚';
+      pause.ariaLabel = p ? 'Продолжить' : 'Пауза';
+      pause.classList.toggle('on', p);
+    };
+    pause.onclick = e => { e.stopPropagation(); spec.built.setPaused(!spec.built.isPaused()); showPause(); };
+    spec.built.setPaused(false);
+    showPause();
+  }
+  cardEl.insertAdjacentHTML('afterbegin', '<div class="grip" title="Смахните вниз, чтобы свернуть"></div>');   // «ручка» — самая верхняя
   cardEl.classList.remove('olymp-on');
   cardEl.querySelectorAll('.chip em').forEach((em, i) => setTimeout(() => decode(em, a.data[i][1]), 150 * i));
   const list = cardEl.querySelector('ul');
@@ -457,13 +529,40 @@ function showCard(id) {
 
 // Образец показывается в свободной части экрана — между верхней панелью и карточкой:
 // сдвигаем «окно» камеры (setViewOffset), а не сам образец.
-function fitView() {
+let viewY = null, viewTarget = 0;
+function fitView(instant) {
   const W = innerWidth, H = innerHeight;
-  if (!spec || mode === 'cell') { camera.clearViewOffset(); return; }
-  const t = topEl.getBoundingClientRect().bottom, b = cardEl.getBoundingClientRect().top;
-  camera.setViewOffset(W, H, 0, H / 2 - (t + b) / 2, W, H);
+  if (!spec || mode === 'cell') { camera.clearViewOffset(); viewY = null; return; }
+  const t = document.body.classList.contains('min-ui') ? 10 : topEl.getBoundingClientRect().bottom;
+  const b = cardEl.getBoundingClientRect().top;
+  viewTarget = H / 2 - (t + b) / 2;
+  if (instant || viewY === null) { viewY = viewTarget; camera.setViewOffset(W, H, 0, viewY, W, H); }
   return (b - t) / H;
 }
+// Каждый кадр «окно» камеры плавно подъезжает к нужному месту.
+function easeView() {
+  if (viewY === null || Math.abs(viewTarget - viewY) < 0.5) return;
+  viewY += (viewTarget - viewY) * 0.15;
+  camera.setViewOffset(innerWidth, innerHeight, 0, viewY, innerWidth, innerHeight);
+}
+
+// Карточку можно свернуть жестом: смахнуть вниз — остаётся только строка репортажа (или
+// название), верхняя панель уезжает, образец становится крупнее. Смахнуть вверх или нажать на
+// «ручку» — карточка возвращается.
+function setCollapsed(on) {
+  cardEl.classList.toggle('min', on);
+  document.body.classList.toggle('min-ui', on);
+  fitView();
+}
+let swipe = null;
+cardEl.addEventListener('pointerdown', e => { swipe = { y: e.clientY, top: cardEl.scrollTop }; });
+cardEl.addEventListener('pointerup', e => {
+  if (!swipe || e.target.closest('.pause')) { swipe = null; return; }
+  const dy = e.clientY - swipe.y, min = cardEl.classList.contains('min');
+  if (!min && dy > 40 && swipe.top <= 0) setCollapsed(true);
+  else if (min && (dy < -30 || Math.abs(dy) < 8)) setCollapsed(false);
+  swipe = null;
+});
 
 function viewDistance(free) {
   const v = THREE.MathUtils.degToRad(camera.fov / 2);
@@ -513,6 +612,7 @@ async function showSpecimen(id) {
   const d = viewDistance(free);
   controls.target.copy(spec.center);
   camera.position.set(...(ATLAS[id].view || [0.35, 0.55, 1])).normalize().multiplyScalar(d).add(spec.center);
+  remember();
   controls.minDistance = d * 0.45;
   controls.maxDistance = d * 1.8;
   controls.enabled = true;
@@ -543,6 +643,8 @@ function switchSpecimen(id, from) {
 function closeSpecimen() {
   crossfade(() => {
     dropSpecimen();
+    cardEl.classList.remove('min');
+    document.body.classList.remove('min-ui');
     mode = 'cell';
     cardEl.style.display = 'none';
     camera.clearViewOffset();
@@ -550,6 +652,7 @@ function closeSpecimen() {
     cell.group.visible = true;
     camera.position.copy(saved.pos);
     controls.target.copy(saved.target);
+    home = cellHome;
     controls.minDistance = 3;
     controls.maxDistance = 26;
     top('Атлас клетки', 'Животная клетка. Вращайте пальцем, нажмите на органоид.');
@@ -563,6 +666,43 @@ $('back').onclick = () => {
   else if (mode === 'cell') location.href = 'index.html';
 };
 controls.addEventListener('start', () => { controls.autoRotate = false; });
+// Сдвиг двумя пальцами ограничен: центр вида не уходит дальше края образца (или клетки),
+// чтобы его нельзя было «потерять» за краем экрана.
+const CELL_CENTER = new THREE.Vector3();
+controls.addEventListener('change', () => {
+  const c = spec && mode === 'specimen' ? spec.center : CELL_CENTER;
+  const max = spec && mode === 'specimen' ? spec.radius * 1.1 : 3.5;
+  const off = controls.target.clone().sub(c);
+  if (off.length() > max) {
+    const back = off.clone().setLength(off.length() - max);
+    controls.target.sub(back);
+    camera.position.sub(back);
+  }
+});
+// Двойное касание по пустому месту — плавно вернуть исходный вид.
+let lastTap = 0, cellHome = null;
+function resetView() {
+  if (!home || fly || mode === 'flying') return;
+  const then = () => { controls.enabled = true; };
+  flyTo(home.pos.clone(), home.target.clone(), 0.7, then);
+}
+
+// Строка-репортаж образца: заголовок этапа «расшифровывается», объяснение проявляется,
+// точки показывают номер этапа, полоска — сколько этапу осталось.
+function showStatus(s) {
+  const el = cardEl.querySelector('.status');
+  if (!el) return;
+  if (el.dataset.head !== s.head) {
+    el.dataset.head = s.head;
+    el.innerHTML = '<div class="sh"></div><div class="sd">' + s.detail + '</div>' +
+      (s.total ? '<div class="sp">' + Array.from({ length: s.total }, (_, i) => '<i' + (i === s.step ? ' class="on"' : i < s.step ? ' class="done"' : '') + '></i>').join('') +
+        '<b><u></u></b></div>' : '');
+    decode(el.querySelector('.sh'), s.head, 450);
+    fitView();
+  }
+  const bar = el.querySelector('.sp u');
+  if (bar) bar.style.width = (s.frac * 100).toFixed(1) + '%';
+}
 
 // ---------- касания ----------
 
@@ -577,12 +717,19 @@ renderer.domElement.addEventListener('webglcontextlost', e => {
 const ray = new THREE.Raycaster();
 let down = null;
 renderer.domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('dblclick', resetView);
+renderer.domElement.addEventListener('pointerup', e => {
+  if (e.pointerType === 'touch' && down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) < 8) {
+    const now = performance.now();
+    if (now - lastTap < 320) { resetView(); lastTap = 0; } else lastTap = now;
+  }
+});
 renderer.domElement.addEventListener('pointerup', e => {
   if (mode !== 'cell' || !cell || !down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) return;
   const p = new THREE.Vector2((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   ray.setFromCamera(p, camera);
   const ids = ray.intersectObject(cell.group, true).map(h => h.object.userData.id).filter(id => id && ATLAS[id]);
-  choose(ids.find(id => !BACKDROP.includes(id)) || ids[0] || null);
+  choose(ids.find(id => !BACKDROP.includes(id)) || BACKDROP.map(b => ids.find(id => id === b)).find(Boolean) || null);
 });
 
 // ---------- анимация ----------
@@ -606,7 +753,13 @@ renderer.setAnimationLoop(() => {
       for (const m of cell.parts[id].materials) if (m.uniforms) m.uniforms.strength.value = (m.userData.base ?? 1) * k;
     }
   }
-  if (spec) { spec.base.update(t, spec.height); if (spec.built) spec.built.update(t); }
+  easeView();
+  if (spec) {
+    spec.base.update(t, spec.height);
+    if (spec.built) spec.built.update(t);
+    // Строка-репортаж: при смене события — «расшифровка» нового текста.
+    if (spec.built && spec.built.status) showStatus(spec.built.status());
+  }
   controls.update();
   layoutTags();
   if (probe && useBloom) {
