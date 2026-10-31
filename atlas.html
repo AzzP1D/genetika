@@ -6,8 +6,8 @@
   <title>Атлас клетки — 3D</title>
   <meta name="author" content="Гинько Егор Дмитриевич, учитель биологии и химии, ГУО «Боровская средняя школа имени Г.К. Жукова Лепельского района»">
   <meta name="copyright" content="© 2026 Гинько Егор Дмитриевич. Все права защищены.">
-  <link rel="stylesheet" href="level.css">
-  <script src="level.js"></script>
+  <link rel="stylesheet" href="level.css?v=0.20">
+  <script src="level.js?v=0.20"></script>
   <style>
     /* «Биотех»: био-неон + интерфейс лаборатории будущего. Панели в форме листа (два угла
        скруглены, два почти острые), шестигранные «соты», узлы выносок пульсируют как живые. */
@@ -171,8 +171,27 @@
     #loading { position: fixed; inset: 0; display: grid; place-items: center; color: var(--cyan); font-family: var(--mono);
       letter-spacing: .14em; text-shadow: 0 0 12px rgb(var(--c-rgb)); }
   </style>
+  <!-- Метка ?v= у своих модулей: после обновления сайта браузер берёт новые файлы, а не старые из кэша.
+       Номер меняется командой node tools/version.mjs <версия>. -->
   <script type="importmap">
-    { "imports": { "three": "./lib/three.module.js", "three/addons/": "./lib/addons/" } }
+    { "imports": {
+      "three": "./lib/three.module.js",
+      "three/addons/": "./lib/addons/",
+      "./atlas.js": "./atlas.js?v=0.20",
+      "./atlas-data.js": "./atlas-data.js?v=0.20",
+      "./cell.js": "./cell.js?v=0.20",
+      "./cellmodel.js": "./cellmodel.js?v=0.20",
+      "./chromosome.js": "./chromosome.js?v=0.20",
+      "./cytoskeleton.js": "./cytoskeleton.js?v=0.20",
+      "./cytostand.js": "./cytostand.js?v=0.20",
+      "./helix.js": "./helix.js?v=0.20",
+      "./membrane.js": "./membrane.js?v=0.20",
+      "./molecules.js": "./molecules.js?v=0.20",
+      "./nucleus.js": "./nucleus.js?v=0.20",
+      "./organelles.js": "./organelles.js?v=0.20",
+      "./style.js": "./style.js?v=0.20",
+      "./style-test.js": "./style-test.js?v=0.20"
+    } }
   </script>
 </head>
 <body>
@@ -187,6 +206,6 @@
   <div id="fade"></div>
   <button id="back" type="button">← Меню</button>
   <button id="glow" type="button">✦</button>
-  <script type="module" src="atlas.js"></script>
+  <script type="module" src="atlas.js?v=0.20"></script>
 </body>
 </html>
