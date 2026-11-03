@@ -89,7 +89,8 @@ table.punnett { border-collapse: collapse; margin: 4px 0 8px; }
 .stats { color: var(--muted); font-size: 14px; margin-top: 16px; }
 
 /* Карта пути */
-.module.atlas { width: 100%; margin-bottom: 18px; border-color: rgb(var(--a-rgb) / 0.4); box-shadow: 0 0 14px rgb(var(--a-rgb) / 0.13); }
+.module.atlas { width: 100%; margin-bottom: 10px; border-color: rgb(var(--a-rgb) / 0.4); box-shadow: 0 0 14px rgb(var(--a-rgb) / 0.13); }
+.module.atlas + .module.atlas { margin-bottom: 18px; }
 .module.atlas em { display: block; font-style: normal; font-size: 12px; font-weight: 700; color: rgb(var(--a-rgb)); text-transform: uppercase; letter-spacing: .04em; }
 .path { list-style: none; margin: 0; padding: 0; position: relative; }
 .path::before { content: ""; position: absolute; left: 17px; top: 18px; bottom: 30px; width: 2px; background: var(--line); }

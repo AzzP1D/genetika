@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Банк микропрепаратов</title>
+  <meta name="author" content="Гинько Егор Дмитриевич, учитель биологии и химии, ГУО «Боровская средняя школа имени Г.К. Жукова Лепельского района»">
+  <meta name="copyright" content="© 2026 Гинько Егор Дмитриевич. Все права защищены. Фотографии микропрепаратов — собственные снимки автора.">
+  <link rel="stylesheet" href="level.css?v=0.24">
+  <script src="level.js?v=0.24"></script>
+  <style>
+    /* Оформление «биотех», как в «Атласе клетки»; сами снимки — в настоящих цветах, без фильтров. */
+    :root { --cyan: #00e5ff; --acid: #39ff14; --ink: #04060d; --panel: #051419db; --line: #00e5ff4d; --dim: #7fb8c4;
+      --mono: ui-monospace, "Cascadia Mono", "Roboto Mono", Consolas, monospace; }
+    html, body { margin: 0; background: var(--ink); color: #e6fbff; font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    #hex { position: fixed; inset: 0; pointer-events: none; opacity: .5;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='42' height='72' viewBox='0 0 42 72'%3E%3Cpath d='M21 0l21 12v24L21 48 0 36V12zM21 48v24' fill='none' stroke='%2300e5ff' stroke-opacity='.10'/%3E%3C/svg%3E");
+      -webkit-mask-image: radial-gradient(ellipse at center, transparent 35%, #000 85%);
+      mask-image: radial-gradient(ellipse at center, transparent 35%, #000 85%); }
+    .leaf { background: var(--panel); border: 1px solid var(--line); border-radius: 20px 5px 20px 5px; position: relative;
+      box-shadow: 0 0 18px rgb(var(--c-rgb) / 0.12), inset 0 0 16px rgb(var(--c-rgb) / 0.05); }
+    .leaf::before, .leaf::after { content: ""; position: absolute; width: 12px; height: 12px; border: 2px solid var(--cyan);
+      filter: drop-shadow(0 0 4px var(--cyan)); pointer-events: none; }
+    .leaf::before { top: -2px; right: -2px; border-left: 0; border-bottom: 0; border-top-right-radius: 5px; }
+    .leaf::after { bottom: -2px; left: -2px; border-right: 0; border-top: 0; border-bottom-left-radius: 5px; }
+    .scan { font: 11px var(--mono); letter-spacing: .18em; color: var(--acid); text-shadow: 0 0 8px rgb(var(--a-rgb) / 0.6); }
+    .scan i { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--acid);
+      box-shadow: 0 0 8px var(--acid); animation: beat 1.6s infinite; vertical-align: 1px; }
+    @keyframes beat { 0%, 100% { opacity: 1; transform: scale(1); } 15% { transform: scale(1.5); } 30% { opacity: .5; transform: scale(1); } }
+    .no { font: 12px var(--mono); color: var(--acid); margin-right: 6px; }
+    .name { font-weight: 700; color: #fff; text-shadow: 0 0 10px rgb(var(--c-rgb) / 0.53); }
+    .btn { min-height: 36px; padding: 0 12px; border: 1px solid var(--line); background: #061a22; color: var(--dim);
+      border-radius: 12px 3px 12px 3px; font: 600 13px system-ui, sans-serif; cursor: pointer; }
+    .btn.on { color: #02130a; background: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 14px rgb(var(--c-rgb) / 0.47); }
+    .btn:disabled { opacity: .35; cursor: default; }
+
+    /* ── Каталог ── */
+    #list { position: relative; max-width: 980px; margin: 0 auto; padding: 10px 12px 40px; }
+    #top { padding: 12px 110px 12px 14px; }
+    #top b { display: block; font-size: 17px; letter-spacing: .1em; text-transform: uppercase; color: var(--cyan);
+      text-shadow: 0 0 10px rgb(var(--c-rgb) / 0.6); margin: 2px 0 4px; }
+    #top p { margin: 0; color: #cfeff7; font-size: 13.5px; }
+    #back { position: absolute; right: 22px; top: 22px; color: var(--cyan); text-decoration: none; font-size: 14px;
+      padding: 6px 10px; border-radius: 10px 3px 10px 3px; border: 1px solid var(--line); background: #04060daa; }
+    h2 { margin: 22px 2px 10px; font: 700 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--acid);
+      text-shadow: 0 0 6px rgb(var(--a-rgb) / .5); }
+    h2 span { color: var(--dim); font-weight: 400; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+    .tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px 10px; cursor: pointer;
+      background: #061a22aa; border: 1px solid var(--line); border-radius: 18px 4px 18px 4px; color: inherit; font: inherit; text-align: center; }
+    .tile:active { transform: scale(.97); }
+    /* Миниатюра — круглое «поле зрения». */
+    .tile .eye { width: 104px; height: 104px; border-radius: 50%; background: #000 center / cover;
+      box-shadow: 0 0 0 2px #0b2430, 0 0 0 3px rgb(var(--c-rgb) / .45), 0 0 14px rgb(var(--c-rgb) / .2), inset 0 0 14px #000c; }
+    .tile .t { font-size: 13.5px; font-weight: 600; line-height: 1.25; color: #eafcff; }
+    .tile .c { font: 11px var(--mono); color: var(--dim); }
+    .tile .hit { font-size: 12px; line-height: 1.3; color: var(--dim); }
+    .tile .hit mark { background: none; color: var(--acid); font-weight: 700; }
+    /* Строка поиска: прилипает к верху при прокрутке каталога. */
+    #find { position: sticky; top: 8px; z-index: 3; display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 4px 6px 4px 12px;
+      background: #051419f2; }
+    #find .ico { font-size: 20px; color: var(--cyan); text-shadow: 0 0 8px rgb(var(--c-rgb) / .6); }
+    #q { flex: 1; min-width: 0; height: 38px; border: 0; outline: 0; background: none; color: #eafcff; font: 15px system-ui, sans-serif; }
+    #q::placeholder { color: var(--dim); opacity: .8; font-size: 13.5px; }
+    #q::-webkit-search-cancel-button { display: none; }
+    #qx { width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 10px 3px 10px 3px; background: #061a22; color: var(--cyan); cursor: pointer; }
+    .none { color: #cfeff7; padding: 16px 4px; }
+
+    /* ── Окуляр ── */
+    #view { position: fixed; inset: 0; z-index: 5; display: none; background: var(--ink);
+      grid-template-areas: "bar" "stage" "ctl" "card"; grid-template-rows: auto minmax(0, 1fr) auto auto; gap: 8px; padding: 8px 10px 18px; box-sizing: border-box; }
+    #view.on { display: grid; }
+    @media (min-aspect-ratio: 5/4) {
+      #view { grid-template-areas: "bar bar" "stage ctl" "stage card"; grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+        grid-template-rows: auto auto minmax(0, 1fr); }
+    }
+    .vbar { grid-area: bar; display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .vbar .vt { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .vbar .name { font-size: 16px; }
+    #stage { grid-area: stage; position: relative; display: grid; place-items: center; min-height: 0; overflow: hidden; }
+    #field { position: relative; border-radius: 50%; overflow: hidden; background: #000; touch-action: none; cursor: grab;
+      box-shadow: 0 0 0 4px #0b2430, 0 0 0 5px rgb(var(--c-rgb) / .55), 0 0 34px rgb(var(--c-rgb) / .25); }
+    #field img { position: absolute; left: 50%; top: 50%; max-width: none; pointer-events: none; will-change: transform, filter;
+      transition: opacity .35s; }
+    #field img.swap { opacity: 0; }
+    /* Тень по краю поля зрения, как в настоящем окуляре. */
+    #field .vig { position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+      background: radial-gradient(circle, transparent 62%, #0006 80%, #000d 100%); }
+    /* Выноски — как в «Атласе клетки» (узел с дугами, наклонная линия, полка, подпись в уголках-скобках),
+       но для пёстрых снимков: под линией и узлом — тёмная подложка, под подписью — полупрозрачная плашка. */
+    #lbl { margin-left: auto; flex: none; padding: 0 9px; font-size: 12.5px; }
+    #vback { flex: none; white-space: nowrap; }
+    #lbl.on { color: #02130a; background: var(--cyan); border-color: var(--cyan); }
+    #leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+    #leaders .under { fill: none; stroke: #04060d; stroke-opacity: .75; stroke-width: 4.5; stroke-linejoin: round; stroke-linecap: round; }
+    #leaders .ln { fill: none; stroke: var(--cyan); stroke-width: 1.6; stroke-linejoin: round; filter: drop-shadow(0 0 3px rgb(var(--c-rgb))); }
+    #leaders .halo { fill: none; stroke: #04060d; stroke-opacity: .7; stroke-width: 4.5; }
+    #leaders .spin { fill: none; stroke: var(--cyan); stroke-width: 1.8; stroke-dasharray: 10 5; filter: drop-shadow(0 0 3px rgb(var(--c-rgb)));
+      animation: spin 4s linear infinite; transform-box: fill-box; transform-origin: center; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #tags { position: absolute; inset: 0; pointer-events: none; }
+    /* Стрелка на ободке — к подписи за краем поля зрения; нажатие подводит её в поле. */
+    #leaders .rim { pointer-events: auto; cursor: pointer; animation: rim 1.6s ease-in-out infinite; }
+    #leaders .rim .hit { fill: transparent; }
+    #leaders .rim .under { stroke-width: 5.5; }
+    #leaders .rim .arrow { fill: none; stroke: var(--acid); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round;
+      filter: drop-shadow(0 0 4px var(--acid)); }
+    @keyframes rim { 50% { opacity: .45; } }
+    .tag { position: absolute; max-width: 130px; box-sizing: content-box; padding: 4px 8px; font-size: 12.5px; line-height: 1.25; font-weight: 600;
+      color: #f2feff; background: rgb(4 6 13 / .72); text-shadow: 0 0 3px #000, 0 0 6px rgb(var(--c-rgb) / .8); }
+    .tag::before, .tag::after { content: ""; position: absolute; width: 8px; height: 8px; border: 1.6px solid var(--cyan);
+      filter: drop-shadow(0 0 3px var(--cyan)); }
+    .tag.l { text-align: right; }
+    .tag.l::before { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+    .tag.l::after { bottom: 0; left: 0; border-right: 0; border-top: 0; }
+    .tag.r::before { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+    .tag.r::after { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+    #sharp { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); padding: 3px 10px; border-radius: 10px 3px 10px 3px;
+      background: #04060dcc; border: 1px solid var(--acid); color: var(--acid); font: 700 11px var(--mono); letter-spacing: .12em;
+      text-shadow: 0 0 6px var(--acid); opacity: 0; transition: opacity .3s; pointer-events: none; }
+    #sharp.on { opacity: 1; }
+    #hint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: 70%; padding: 8px 12px; text-align: center;
+      border-radius: 14px 4px 14px 4px; background: #04060dcc; border: 1px solid var(--acid); color: var(--acid);
+      font: 700 13px/1.35 system-ui, sans-serif; text-shadow: 0 0 6px rgb(var(--a-rgb) / .6); pointer-events: none; transition: opacity .4s; }
+    #hint.off { opacity: 0; }
+
+    #ctl { grid-area: ctl; display: flex; align-items: center; gap: 8px; padding: 8px 10px; flex-wrap: wrap; }
+    #ctl .grp { display: flex; flex-direction: column; gap: 4px; }
+    #ctl .lbl { font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+    #ctl .row { display: flex; gap: 5px; align-items: center; }
+    #ctl .row .btn { min-width: 34px; padding: 0 9px; }
+    @media (max-width: 440px) { #ctl .zoom { display: none; } }   /* на телефоне приближают двумя пальцами */
+    #ctl .mag { font: 700 18px/1 var(--mono); color: var(--cyan); text-shadow: 0 0 8px rgb(var(--c-rgb) / .6); }
+    #ctl .fld { font: 12px var(--mono); color: #cfeff7; min-width: 30px; text-align: center; }
+    /* Винт фокусировки: рифлёный барабан, крутится при перетаскивании пальцем вверх-вниз или вбок. */
+    #ctl .focus { margin-left: auto; align-items: center; }
+    #knob { width: 56px; height: 56px; border-radius: 50%; touch-action: none; cursor: ns-resize; flex: none;
+      background: radial-gradient(circle, #0b2430 0 38%, transparent 39%),
+        repeating-conic-gradient(rgb(var(--c-rgb) / .9) 0 4deg, #06323c 4deg 15deg);
+      box-shadow: 0 0 0 2px #04060d, 0 0 0 3px rgb(var(--c-rgb) / .5), 0 0 16px rgb(var(--c-rgb) / .3); }
+    #knob.pulse { animation: knob 1.4s infinite; }
+    @keyframes knob { 50% { box-shadow: 0 0 0 2px #04060d, 0 0 0 3px var(--acid), 0 0 22px var(--acid); } }
+
+    #card { grid-area: card; padding: 10px 14px; overflow-y: auto; min-height: 0;
+      max-height: max(130px, calc(100dvh - 100vw - 200px)); }
+    @media (min-aspect-ratio: 5/4) { #card { max-height: none; } }
+    #card .head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; }
+    #card .lat { font: italic 12px var(--mono); color: var(--dim); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    .chip { --cut: 9px; padding: 1px; background: var(--line);
+      clip-path: polygon(var(--cut) 0, calc(100% - var(--cut)) 0, 100% 50%, calc(100% - var(--cut)) 100%, var(--cut) 100%, 0 50%); }
+    .chip > span { display: block; padding: 3px 14px; background: #061a22; font: 12px var(--mono); color: var(--dim); clip-path: inherit; }
+    .tabs { display: flex; gap: 6px; margin: 6px 0; }
+    .tabs .btn { flex: 1; }
+    .tabs .btn.warn.on { background: #ff5c8a; border-color: #ff5c8a; box-shadow: 0 0 14px #ff2b6a77; }
+    #card ul { margin: 4px 0 2px; padding: 0; list-style: none; animation: focus .6s ease-out; }
+    #card li { position: relative; padding-left: 18px; margin: 6px 0; color: #d8f6fc; font-size: 14px; }
+    #card li::before { content: "⬡"; position: absolute; left: 0; top: 0; color: var(--acid); font-size: 12px; text-shadow: 0 0 6px var(--acid); }
+    #card li.trap::before { color: #ff5c8a; text-shadow: 0 0 6px #ff5c8a; }
+    #card li b { color: #ff8fb0; }
+    #card .ans { margin: 8px 0 2px; padding: 8px 10px; border-left: 2px solid var(--acid); color: #d8f6fc; font-size: 14px; animation: focus .6s ease-out; }
+    #card .see { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    #card p { margin: 6px 0; color: #cfeff7; font-size: 14px; }
+    #card p.fnote { margin: 4px 0 0; font: 12px var(--mono); color: var(--acid); }
+    @keyframes focus { from { opacity: 0; filter: blur(5px); } to { opacity: 1; filter: none; } }
+
+    #wm { text-align: center; font-size: 10px; letter-spacing: .04em; color: #7fd8e866; padding: 0 0 8px; }
+    #view #wm { position: fixed; left: 0; right: 0; bottom: 2px; padding: 0; pointer-events: none; }
+  </style>
+  <script type="importmap">
+    { "imports": {
+      "./micro.js": "./micro.js?v=0.24",
+      "./micro-data.js": "./micro-data.js?v=0.24"
+    } }
+  </script>
+</head>
+<body>
+  <div id="hex"></div>
+  <main id="list">
+    <div id="top" class="leaf">
+      <div class="scan"><i></i>ПРЕДМЕТНЫЙ СТОЛИК · ГОТОВ</div>
+      <b>Банк микропрепаратов</b>
+      <p>Если под рукой нет микроскопа. Все снимки сделаны автором на школьном цифровом микроскопе:
+        изображение выводится на экран компьютера, кадр сохранён программой микроскопа.</p>
+    </div>
+    <a id="back" href="index.html">← Меню</a>
+    <div id="find" class="leaf">
+      <span class="ico">⌕</span>
+      <input id="q" type="search" enterkeyhint="search" autocomplete="off" spellcheck="false"
+        placeholder="Препарат, код или термин: лук, BB01, ядро" aria-label="Поиск препарата">
+      <button id="qx" type="button" hidden aria-label="Очистить">✕</button>
+    </div>
+    <div id="secs"></div>
+  </main>
+  <section id="view">
+    <div class="vbar">
+      <button id="vback" class="btn" type="button">← Банк</button>
+      <div class="vt"><span class="no" id="vno"></span><b class="name" id="vname"></b></div>
+      <button id="lbl" class="btn" type="button" hidden>Подписи</button>
+    </div>
+    <div id="stage">
+      <div id="field"><img id="ph" alt=""><div class="vig"></div></div>
+      <svg id="leaders"></svg>
+      <div id="tags"></div>
+      <div id="hint">Крутите винт фокусировки — наведите резкость</div>
+      <div id="sharp">◉ РЕЗКО</div>
+    </div>
+    <div id="ctl" class="leaf"></div>
+    <div id="card" class="leaf"></div>
+  </section>
+  <div id="wm">© 2026 Гинько Е.Д. · Все права защищены · Фото препаратов — автора</div>
+  <script type="module" src="micro.js?v=0.24"></script>
+</body>
+</html>
