@@ -201,6 +201,8 @@ function homeView() {
     // Справочник вне пути: открыт всегда, прохождение не отмечается.
     '<button class="module atlas" data-act="go" data-v="atlas.html"><em>Справочник · 3D</em><b>Атлас клетки</b>' +
     '<span>Органоиды животной клетки крупным планом: строение, функции, типичные ошибки</span></button>' +
+    '<button class="module atlas" data-act="go" data-v="micro.html"><em>Справочник · Фото</em><b>Банк микропрепаратов</b>' +
+    '<span>Препараты школьного набора под «микроскопом» на экране — если настоящего нет под рукой</span></button>' +
     '<ol class="path">' + PATH.map((m, i) => {
       const done = Progress.isDone(m.id), soon = !m.href, next = cur && cur.id === m.id;
       const cls = done ? 'done' : next ? 'next' : soon ? 'soon' : '';
