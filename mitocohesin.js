@@ -35,15 +35,40 @@ export async function createCohesion() {
     mesh.name=name;parts.add(mesh);return mesh;
   }
   const left = new THREE.Group(), right = new THREE.Group();parts.add(left,right);
-  const armL=tube([[-5,-18,0],[-17,-8,0],[-18,9,0],[-9,20,0],[0,23,0]],.8,colors.smc1,'SMC1 (плечо реконструировано)');
-  const armR=tube([[5,-18,0],[17,-8,0],[18,9,0],[9,20,0],[0,23,0]],.8,colors.smc3,'SMC3 (плечо реконструировано)');
-  left.add(armL);right.add(armR);
+  // Две переплетённые альфа-спирали в каждом плече; общий путь реконструирован.
+  function coiledArm(points,color,parent,name) {
+    const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p)));
+    const frames=curve.computeFrenetFrames(220,false);
+    for(let strand=0;strand<2;strand++) {
+      const pts=[];
+      for(let i=0;i<=220;i++) {
+        const u=i/220,a=u*Math.PI*22+strand*Math.PI;
+        const r=.48*Math.sin(Math.PI*u);
+        pts.push(curve.getPointAt(u).addScaledVector(frames.normals[i],r*Math.cos(a)).addScaledVector(frames.binormals[i],r*Math.sin(a)).toArray());
+      }
+      parent.add(tube(pts,.32,color,name,300));
+    }
+  }
+  coiledArm([[-5,-18,0],[-14,-6,0],[-12,11,0],[-3,21,0],[0,23,0]],colors.smc1,left,'SMC1 · спиральное плечо (реконструкция)');
+  coiledArm([[5,-18,0],[14,-6,0],[12,11,0],[3,21,0],[0,23,0]],colors.smc3,right,'SMC3 · спиральное плечо (реконструкция)');
+  const hinge=new THREE.Group();hinge.name='Шарнир SMC1–SMC3 (реконструкция)';parts.add(hinge);
+  for(const side of [-1,1]) {
+    const lobe=new THREE.Mesh(new THREE.SphereGeometry(1.65,16,12),material(side<0?colors.smc1:colors.smc3));
+    lobe.position.set(side*.9,23,0);lobe.scale.set(1,1.2,.8);hinge.add(lobe);
+  }
   const head1=new THREE.Mesh(geo.coh_smc1,material(colors.smc1));head1.position.set(-5,-18,0);left.add(head1);
   const head2=new THREE.Mesh(geo.coh_smc3,material(colors.smc3));head2.position.set(5,-18,0);right.add(head2);
+  const stag=new THREE.Mesh(geo.coh_stag1,material(0xd5a3ff));
+  stag.name='STAG1 (6WG3; положение реконструировано)';stag.position.set(9,-19,1.5);right.add(stag);
   // Отдельные половины белковой цепи; в нерасщеплённом состоянии встречаются без щели.
   const gateL=tube([[-5,-19,0],[-6,-23,0],[-3,-25,0],[0,-25,0]],.65,colors.rad21,'RAD21 — левая часть',36);
   const gateR=tube([[0,-25,0],[3,-25,0],[6,-23,0],[5,-19,0]],.65,colors.rad21,'RAD21 — правая часть',36);
   left.add(gateL);right.add(gateR);
+  // Оба плеча раскрываются вокруг общего шарнира, не распадаясь на фрагменты.
+  for(const half of [left,right]) {
+    half.position.y=23;
+    for(const child of half.children)child.position.y-=23;
+  }
   const cutSite=new THREE.Vector3(0,-25,0);
   const marker=new THREE.Mesh(new THREE.TorusGeometry(1.65,.13,6,32),material(colors.rad21));
   marker.position.copy(cutSite);parts.add(marker);
@@ -57,27 +82,34 @@ export async function createCohesion() {
   // Совмещаем каталитический участок с условным местом расщепления; не моделируем химию реакции.
   const at=cutSite.clone().sub(new THREE.Vector3(...meta.activeSite));
 
-  // Две целые двойные спирали, проходящие сквозь удерживающую связь.
-  const dnaGroups=[];
-  const dnaMat=material(colors.dna);
-  for (const side of [-1,1]) {
-    const dna=new THREE.Group();dna.name='Целая ДНК сестры '+(side<0?1:2);parts.add(dna);
-    for (let strand=0;strand<2;strand++) {
-      const pts=[];
-      for(let i=0;i<=220;i++) {
-        const z=-32+64*i/220,a=z*2*Math.PI/3.4+strand*Math.PI;
-        pts.push(new THREE.Vector3(Math.cos(a),Math.sin(a),z));
+  // Два фрагмента хроматина. Нуклеосомы — 1KX5, соединительные участки — реконструкция.
+  // Каждая сестра содержит одну НЕПРЕРЫВНУЮ двойную спираль; ни ДНК, ни гистоны не режутся.
+  const dnaGroups=[],dnaMat=material(colors.dna),histMat=material(0xbd88ed);
+  const template=meta.nucleosomeStrands.map(points=>points.map(p=>new THREE.Vector3(...p)));
+  // Полярности цепей противоположны: для построения поверхности идём вдоль обеих в одну сторону.
+  if(template[0][0].distanceTo(template[1].at(-1))<template[0][0].distanceTo(template[1][0]))template[1].reverse();
+  for(const side of [-1,1]) {
+    const dna=new THREE.Group();dna.name='Фрагмент хроматина сестры '+(side<0?1:2);parts.add(dna);
+    const centers=[new THREE.Vector3(-2,side*2,-22),new THREE.Vector3(2,-side*2,22)];
+    for(const c of centers) {
+      const core=new THREE.Mesh(geo.coh_histones,histMat);core.position.copy(c);core.name='Гистоны нуклеосомы · 1KX5';dna.add(core);
+    }
+    const paths=[];
+    for(let strand=0;strand<2;strand++) {
+      const first=template[strand].map(p=>p.clone().add(centers[0]));
+      const last=template[strand].map(p=>p.clone().add(centers[1]));
+      const end=first.at(-1),begin=last[0];
+      const bridge=new THREE.CatmullRomCurve3([end,end.clone().add(new THREE.Vector3(0,0,3)),new THREE.Vector3(2,1,-9),new THREE.Vector3(-1,1,0),new THREE.Vector3(0,-1,9),begin.clone().add(new THREE.Vector3(0,0,-3)),begin]);
+      const frames=bridge.computeFrenetFrames(180,false),link=[];
+      for(let i=1;i<180;i++) {
+        const u=i/180,a=u*bridge.getLength()*2*Math.PI/3.4+strand*Math.PI;
+        const r=THREE.MathUtils.smoothstep(u,0,.15)*(1-THREE.MathUtils.smoothstep(u,.85,1));
+        link.push(bridge.getPointAt(u).addScaledVector(frames.normals[i],r*Math.cos(a)).addScaledVector(frames.binormals[i],r*Math.sin(a)));
       }
-      dna.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),440,.18,5,false),dnaMat));
+      const curve=new THREE.CatmullRomCurve3([...first,...link,...last]);paths.push(curve);
+      const mesh=new THREE.Mesh(new THREE.TubeGeometry(curve,1000,.2,5,false),dnaMat);mesh.name='Непрерывная цепь ДНК '+strand;dna.add(mesh);
     }
-    const rungs=new THREE.InstancedMesh(new THREE.CylinderGeometry(.12,.12,2,5),dnaMat,180);
-    const m=new THREE.Matrix4(),q=new THREE.Quaternion();
-    for(let i=0;i<180;i++) {
-      const z=-30.4+i*.34,a=z*2*Math.PI/3.4;
-      m.compose(new THREE.Vector3(0,0,z),q.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(Math.cos(a),Math.sin(a),0)),new THREE.Vector3(1,1,1));
-      rungs.setMatrixAt(i,m);
-    }
-    dna.add(rungs);dna.position.x=side*6;dnaGroups.push(dna);
+    dna.position.x=side*6;dnaGroups.push(dna);
   }
 
   const labels=new THREE.Group();parts.add(labels);
@@ -87,9 +119,10 @@ export async function createCohesion() {
     return line;
   }
   label('Когезин · удерживает сестёр','#9facff',[20,23,5],[10,17,0]);
-  label('RAD21 · белковая мишень','#ff8094',[20,-26,5],[0,-25,0]);
+  label('RAD21 · замыкает комплекс','#ff8094',[20,-26,5],[0,-25,0]);
   const enzymeLine=label('Сепараза · фермент','#64ffcf',[-32,8,8],[-30,-5,6]);
-  label('Две молекулы ДНК','#60eaff',[21,5,17],[6,0,12]);
+  label('Хроматин · ДНК и гистоны','#60eaff',[24,6,19],[6,0,22]);
+  label('Шарнир','#9facff',[-15,29,0],[0,23,0]);
   const secLabel=textSprite('Секурин · блокирует сепаразу','#f4dd4c',1.8);secLabel.position.set(-29,-20,9);labels.add(secLabel);
   let mode='held',time=0,age=0,tugAge=99, disposed=false;
   function draw() {
@@ -104,15 +137,15 @@ export async function createCohesion() {
     sec.position.set(-unblock*4,unblock*5,unblock*2);
     secLabel.visible=mode==='held'||mode==='unblocking';
     left.rotation.z=-opening*.21;right.rotation.z=opening*.21;
-    left.position.x=-opening*3;right.position.x=opening*3;
-    marker.visible=opening<.1;
+
+    marker.visible=mode==='cutting'&&opening<.1;
     marker.scale.setScalar(1+.09*Math.sin(time*4));
     const tug=tugAge<1.5?Math.sin(Math.PI*tugAge/1.5)**2*.45:0;
     dnaGroups.forEach((dna,i)=>dna.position.x=(i===0?-1:1)*(6+opening*7+tug));
   }
   draw();
   return {
-    group,view:{center:new THREE.Vector3(-.25,-.1,0),radius:4.2},
+    group,view:{center:new THREE.Vector3(-.25,-.1,0),radius:4.8},
     get state(){return mode;}, get ready(){return mode==='free';}, get cutDone(){return mode==='cut';},
     evidence:{source:meta,dnaGroups,gateL,gateR},
     tug(){if(mode!=='held'&&mode!=='free')return false;tugAge=0;return true;},
