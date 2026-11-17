@@ -26,6 +26,12 @@ const {BEND}=await import('../app/mitochrom.js');
 const molecular=await createCohesion();
 const dnaSignature=()=>molecular.evidence.dnaGroups.map(g=>g.children.map(o=>o.geometry.attributes.position.count));
 const before=dnaSignature();
+assert.equal(molecular.evidence.source.nucleosomeSource,'1KX5');
+for(const chromatin of molecular.evidence.dnaGroups) {
+  assert.equal(chromatin.children.filter(o=>o.name.startsWith('Гистоны')).length,2);
+  assert.equal(chromatin.children.filter(o=>o.name.startsWith('Непрерывная цепь')).length,2);
+}
+
 assert.equal(molecular.cut(),false);molecular.tug();molecular.update(1);assert.equal(molecular.state,'held');
 molecular.activate();molecular.update(2.3);assert(molecular.ready);assert(molecular.cut());
 for(let i=0;i<210;i++)molecular.update(1/30);
@@ -54,6 +60,7 @@ for(const olymp of [false,true]) {
   for(let i=0;i<80&&stage.state==='loading';i++)await new Promise(r=>setTimeout(r,5));
   assert.equal(stage.state,'held');click('Попробовать развести сестёр');tick(2);assert.equal(stage.evidence.released,false);
   click('Активировать сепаразу');tick(2.5);assert.equal(stage.state,'target');
+  assert.equal(uiState.buttons.length,3);assert(uiState.buttons.every(b=>!b.primary),'Answer styling must not reveal the target');
   click('ДНК в центромере');assert.equal(stage.state,'target');assert.equal(stage.evidence.chromosomes,8);
   click('Белок когезина (RAD21)');tick(6.8);assert.equal(stage.state,'cause');assert.equal(stage.evidence.released,false);
   click('Сепараза разрезала ДНК в центромере');assert.equal(stage.state,'cause');

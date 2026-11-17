@@ -37,6 +37,19 @@ for entity,name,color in [('1','coh_smc1',0x6e8cff),('2','coh_smc3',0x927aff)]:
     ax=axes_of(pts);f=Frame(mean(pts),ax[1],ax[0])
     blob(name,[('res',p) for p in pts],f,color,1000,.35)
     print('OK head',name,'residues',len(pts))
+# STAG1: экспериментальная форма, положение в раскрытой учебной сборке условное.
+pts=[p for e,ch,s,k,p in b if e=='4']
+ax=axes_of(pts);f=Frame(mean(pts),ax[1],ax[0])
+blob('coh_stag1',[('res',p) for p in pts],f,0xd5a3ff,1300,.35)
+# Нуклеосома из уже имеющейся 1KX5: гистоны и две непрерывные цепи ДНК.
+nuc=beads('1KX5')
+hist=[p for e,ch,s,k,p in nuc if k=='res']
+ax=axes_of(hist);f=Frame(mean(hist),ax[0],ax[2])
+blob('coh_histones',[('res',p) for p in hist],f,0xc08bff,1100,.3)
+chains=sorted(set(ch for e,ch,s,k,p in nuc if k=='bb'))
+meta['nucleosomeSource']='1KX5'
+meta['nucleosomeStrands']=[ [list(f.to(p)) for e,ch,s,k,p in sorted(nuc,key=lambda v:v[2]) if ch==chain and k=='bb'] for chain in chains ]
+meta['reconstruction']='Open cohesin architecture, SMC coiled coils and hinge, RAD21 path, chromatin linkers, assembly placement and cleavage motion are illustrative. STAG1 and heads: 6WG3; nucleosome histones and DNA backbone: 1KX5; inhibited separase: 7NJ1.'
 lib.export('cohesion_pdb');lib.report('cohesion_pdb')
 with open(os.path.join(lib.ROOT,'app/models/cohesion_pdb.json'),'w',encoding='utf-8') as out:json.dump(meta,out,indent=2)
 # Экспортированные части центрированы; на превью разложены для проверки формы.
