@@ -19,6 +19,9 @@ export const PALETTE = {
   mark: 0xff3b5c,       // метки на хвостах
   nucleolus: 0xff2bd6,
   pore: 0xe8ff00,
+  chromMat: 0x00e5ff,   // хромосомы материнского набора — как ДНК
+  chromPat: 0x9a7bff,   // хромосомы отцовского набора — другой холодный оттенок
+  kinetochore: 0xffd23f,
   ink: 0x070a10,        // контур (прежний стиль)
 };
 
