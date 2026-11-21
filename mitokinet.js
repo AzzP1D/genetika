@@ -1,4 +1,4 @@
-import { infoTag } from './mitoinfo.js';
+import { bindInfoSurface, infoTag, infoWorldPoint } from './mitoinfo.js';
 import * as THREE from 'three';
 import { neon, textSprite } from './style.js';
 import { loadModel, PARTS } from './organelles.js';
@@ -147,6 +147,7 @@ export async function createKinetochore({ olymp = false } = {}) {
   const ccan = ['hikm', 'ln', 'opqur', 'twsx', 'dna'].map(sub => inst('kt_ccan_' + sub, CCAN));
   const cenpa = inst('kt_nuc_cenpa', CCAN);                                  // нуклеосомы с CENP-A (красный)
   const h3 = inst('kt_nuc_cenpa', NUC - CCAN, mat('kt_nuc_histone'));        // обычные — с гистоном H3
+  infoTag(h3, 'histones');
   const hist = inst('kt_nuc_histone', NUC), nucDna = inst('kt_nuc_dna', NUC);
   const ccanFrames = [], nucFrames = [];
   for (let j = 0; j < CCAN; j++) {
@@ -240,6 +241,7 @@ export async function createKinetochore({ olymp = false } = {}) {
   const SURFACE = 64;
   const surfHist = inst('kt_nuc_histone', SURFACE, neon(0x655786, {glow:.45,body:.35,strength:.75}));
   const surfH3 = inst('kt_nuc_cenpa', SURFACE, neon(0x655786, {glow:.45,body:.35,strength:.75}));
+  infoTag(surfH3, 'histones');
   const surfDna = inst('kt_nuc_dna', SURFACE, neon(0x009aac, {glow:.55,body:.4,strength:.75}));
   for (let j = 0; j < SURFACE; j++) {
     const angle = j * 2.399963, r = Math.sqrt((j + 1) / SURFACE) * 105;
@@ -258,6 +260,11 @@ export async function createKinetochore({ olymp = false } = {}) {
   const SAC = olymp ? 3 : 0;
   const mad = SAC ? ['kt_mad1', 'kt_mad2'].map(p => inst(p, SAC)) : [];
   const mcc = SAC ? ['kt_mcc_cdc20', 'kt_mcc_mad2', 'kt_mcc_bubr1'].map(p => inst(p, SAC)) : [];
+  for (const m of mad) infoTag(m, 'mad12');
+  for (const m of mcc) {
+    infoTag(m, 'mcc');
+    m.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 115);
+  }
   const sac = [];
   for (let j = 0; j < SAC; j++) {
     const th = j / SAC * Math.PI * 2 + 1.1;
@@ -269,38 +276,57 @@ export async function createKinetochore({ olymp = false } = {}) {
   const labels = new THREE.Group();
   labels.visible = false;
   asm.add(labels);
-  const label = (text, color, at, to) => {
-    const sp = textSprite(text, color, 7);
+  const leaders = [];
+  function label(host, text, color, id, at, to, meshes, { height = 7, elbow } = {}) {
+    const sp = infoTag(textSprite(text, color, height), id);
     sp.position.copy(at);
-    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([at, to]), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.55 }));
-    labels.add(sp, line);
-    const id=text.includes('Ndc80')?'ndc80':text.includes('Mis12')?'mis12':text.includes('CENP-A')?'cenpa':text.includes('Внутренний')?'ccan':'microtubule';
-    infoTag(sp,id,to.clone().sub(at));
-  };
-  label('Микротрубочка', '#a6ff5c', new THREE.Vector3(52, -84, 14), new THREE.Vector3(13, -84, 4));
-  label('Комплекс Ndc80', '#ffd23f', new THREE.Vector3(-58, -10, 14), new THREE.Vector3(-30, -8, 6));
-  label('Комплекс Mis12', '#ff8fc0', new THREE.Vector3(62, 40, 14), new THREE.Vector3(27, 40, 6));
-  label(olymp ? 'Внутренний кинетохор (CCAN)' : 'Внутренний кинетохор', '#7fb0ff', new THREE.Vector3(-66, 70, 14), new THREE.Vector3(-26, 70, 6));
-  label('CENP-A · хроматин центромеры', '#ff7088', new THREE.Vector3(68, 95, 14), new THREE.Vector3(26, 86, 6));
+    const points = elbow ? [at, elbow, to] : [at, to];
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),
+      new THREE.LineBasicMaterial({ color, transparent: true, opacity: .55 }));
+    line.frustumCulled = false;
+    host.add(sp, line);
+    leaders.push({ host, sp, line, meshes, to, binding: null });
+  }
+  const ccanProteins = ccan.slice(0, 4);
+  label(labels, 'Микротрубочка', '#a6ff5c', 'microtubule', new THREE.Vector3(52, -84, 14), new THREE.Vector3(13, -84, 4), [alpha,beta]);
+  label(labels, 'Комплекс Ndc80', '#ffd23f', 'ndc80', new THREE.Vector3(-58, -10, 14), new THREE.Vector3(-30, -8, 6), [heads,feet]);
+  label(labels, 'Комплекс Mis12', '#ff8fc0', 'mis12', new THREE.Vector3(62, 40, 14), new THREE.Vector3(27, 40, 6), [mis12]);
+  label(labels, olymp ? 'Внутренний кинетохор (CCAN)' : 'Внутренний кинетохор', '#7fb0ff', 'ccan',
+    new THREE.Vector3(-66, 70, 14), new THREE.Vector3(-26, 70, 6), ccanProteins);
+  label(labels, 'CENP-A · хроматин центромеры', '#ff7088', 'cenpa',
+    new THREE.Vector3(68, 95, 14), new THREE.Vector3(26, 86, 6), [cenpa]);
   const overviewLabels = new THREE.Group();
   overviewLabels.visible = false;
   asm.add(overviewLabels);
-  const siteLabel = textSprite('Кинетохор · центромера', '#72ebf5', 34);
-  siteLabel.position.set(-215, -120, 20);
-  overviewLabels.add(siteLabel, new THREE.Line(new THREE.BufferGeometry().setFromPoints([
-    siteLabel.position, new THREE.Vector3(-95,-120,20),new THREE.Vector3(0,70,0),
-  ]),new THREE.LineBasicMaterial({color:0x72ebf5,transparent:true,opacity:.65})));
+  label(overviewLabels, 'Кинетохор · центромера', '#72ebf5', 'kinetochore',
+    new THREE.Vector3(-215,-120,20), new THREE.Vector3(0,70,0), ccanProteins,
+    {height:34,elbow:new THREE.Vector3(-95,-120,20)});
   // Подписи белков контрольной точки видны, пока кинетохор свободен.
   const sacLabels = new THREE.Group();
   asm.add(sacLabels);
   if (SAC) {
-    const add = (text, color, at, to) => {
-      const sp = textSprite(text, color, 7);
-      sp.position.copy(at);
-      sacLabels.add(sp, new THREE.Line(new THREE.BufferGeometry().setFromPoints([at, to]), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.55 })));
-    };
-    add('Mad1–Mad2', '#f4ff3a', sac[0].at.clone().add(new THREE.Vector3(0, -16, 10)), sac[0].at);
-    add('MCC: запрет анафазы', '#ff8a6a', sac[1].at.clone().addScaledVector(sac[1].out, 46).add(new THREE.Vector3(0, -22, 10)), sac[1].at.clone().addScaledVector(sac[1].out, 34).add(new THREE.Vector3(0, -8, 0)));
+    label(sacLabels, 'Mad1–Mad2', '#f4ff3a', 'mad12', sac[0].at.clone().add(new THREE.Vector3(0,-16,10)), sac[0].at, mad);
+    label(sacLabels, 'MCC: запрет анафазы', '#ff8a6a', 'mcc',
+      sac[1].at.clone().addScaledVector(sac[1].out,46).add(new THREE.Vector3(0,-22,10)),
+      sac[1].at.clone().addScaledVector(sac[1].out,34).add(new THREE.Vector3(0,-8,0)),mcc);
+  }
+  const leaderEnd = new THREE.Vector3(), leaderHint = new THREE.Vector3(), labelInstance = new THREE.Matrix4();
+  function syncLeaders() {
+    for (const item of leaders) {
+      if (!item.host.visible) continue;
+      if (item.binding) {
+        const {owner,instanceId}=item.binding;
+        owner.getMatrixAt(instanceId,labelInstance);
+        if (labelInstance.getMaxScaleOnAxis()===0) item.binding=null;
+      }
+      if (!item.binding) item.binding=bindInfoSurface(item.sp,item.meshes,asm.localToWorld(leaderHint.copy(item.to)));
+      item.line.visible=item.sp.visible=!!item.binding;
+      if (!item.binding) continue;
+      asm.worldToLocal(infoWorldPoint(item.sp,leaderEnd));
+      const position=item.line.geometry.getAttribute('position');
+      position.setXYZ(position.count-1,leaderEnd.x,leaderEnd.y,leaderEnd.z);
+      position.needsUpdate=true;
+    }
   }
 
   // ---------- состояние и анимация ----------
@@ -339,7 +365,9 @@ export async function createKinetochore({ olymp = false } = {}) {
     });
     heads.instanceMatrix.needsUpdate = true;
 
-    sacLabels.visible = grow < 0.7;
+    sacLabels.visible = SAC > 0 && !wide && grow < 0.7;
+    for (const m of mad) m.visible=grow<.98;
+    for (const m of mcc) m.visible=grow<.98;
     sac.forEach((o, j) => {
       const gone = THREE.MathUtils.smoothstep(grow, 0.72, 0.98);
       v.copy(o.at).addScaledVector(o.out, gone * 30).addScaledVector(Y, 1.5 * Math.sin(time * 0.8 + j));
@@ -353,6 +381,7 @@ export async function createKinetochore({ olymp = false } = {}) {
       m4.compose(v, q.setFromAxisAngle(Y, u * 3 + j), s3.setScalar(s));
       for (const m of mcc) { m.setMatrixAt(j, m4); m.instanceMatrix.needsUpdate = true; }
     });
+    syncLeaders();
   }
   draw();
 
@@ -362,12 +391,15 @@ export async function createKinetochore({ olymp = false } = {}) {
     overview: { radius: 1160 * NM, center: new THREE.Vector3(0, -325 * NM, 0) },
     // Диагностика для проверки конечности матриц и сохранения экспериментального узла.
     evidence: { junction: junctionMeta, links, chromosome: 'Blender; illustrative chromatin packing' },
-    showOverview(on) { wide = on; overviewLabels.visible = on; labels.visible = !on && grow === 1; },
+    showOverview(on) {
+      wide=on;overviewLabels.visible=on;labels.visible=!on&&grow===1;
+      sacLabels.visible=SAC>0&&!on&&grow<.7;syncLeaders();
+    },
     get done() { return grow === 1; },
     // Показать прикрепление с начала.
     play() { grow = 0; playing = true; still = false; labels.visible = false; },
     // Сразу готовое состояние: микротрубочка прикреплена.
-    finish() { grow = 1; playing = false; still = false; labels.visible = !wide; },
+    finish() { grow=1;playing=false;labels.visible=!wide;draw();still=!SAC; },
     // Освободить память видеокарты, когда крупный план закрыт.
     dispose() {
       group.traverse(o => {

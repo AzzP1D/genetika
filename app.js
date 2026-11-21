@@ -194,10 +194,10 @@ function homeView() {
   const cur = Progress.current();
   const lv = Level.get();
   return '<h1>Генетика</h1><p class="sub">Путь «от молекулы к признаку»</p>' +
-    // Уровень: школьный или олимпиадный. Олимпиадный меняет оформление и (дальше) содержание.
+    // Уровень влияет на оформление и доступные темы.
     '<div class="level" role="group" aria-label="Уровень сложности">' +
-    '<button data-act="level" data-v="school"' + (lv === 'school' ? ' class="on"' : '') + '>Школьный</button>' +
-    '<button data-act="level" data-v="olymp"' + (lv === 'olymp' ? ' class="on"' : '') + '>Олимпиадный</button></div>' +
+    '<button data-act="level" data-v="school" aria-pressed="' + (lv === 'school') + '"' + (lv === 'school' ? ' class="on"' : '') + '>Школьный</button>' +
+    '<button data-act="level" data-v="olymp" aria-pressed="' + (lv === 'olymp') + '"' + (lv === 'olymp' ? ' class="on"' : '') + '>Олимпиадный</button></div>' +
     // Справочник вне пути: открыт всегда, прохождение не отмечается.
     '<button class="module atlas" data-act="go" data-v="atlas.html"><em>Справочник · 3D</em><b>Атлас клетки</b>' +
     '<span>Органоиды животной клетки крупным планом: строение, функции, типичные ошибки</span></button>' +
@@ -205,10 +205,11 @@ function homeView() {
     '<span>Препараты школьного набора под «микроскопом» на экране — если настоящего нет под рукой</span></button>' +
     '<ol class="path">' + PATH.map((m, i) => {
       const done = Progress.isDone(m.id), soon = !m.href, next = cur && cur.id === m.id;
+      const desc = lv === 'olymp' && m.olympDesc ? m.olympDesc : m.desc;
       const cls = done ? 'done' : next ? 'next' : soon ? 'soon' : '';
       return '<li class="' + cls + '"><span class="dot">' + (done ? '✓' : i + 1) + '</span>' +
         '<button class="module" data-act="open" data-v="' + m.id + '"' + (soon ? ' disabled' : '') + '>' +
-        (next ? '<em>Следующий шаг</em>' : '') + '<b>' + m.title + '</b><span>' + (soon ? 'Скоро' : m.desc) + '</span></button></li>';
+        (next ? '<em>Следующий шаг</em>' : '') + '<b>' + m.title + '</b><span>' + (soon ? 'Скоро' : desc) + '</span></button></li>';
     }).join('') + '</ol>' +
     '<p class="stats">Все готовые темы открыты — можно начать с любой.<br>Решено задач по генетике: ' + st.solved + ' · без ошибок: ' + st.clean + '</p>';
 }
@@ -364,7 +365,11 @@ app.addEventListener('click', e => {
   const i = Number(b.dataset.i);
   switch (act) {
     case 'open': {
-      if (v !== 'mono') { location.href = PATH.find(m => m.id === v).href; return; }
+      if (v !== 'mono') {
+        const href = PATH.find(m => m.id === v)?.href;
+        if (href) location.href = href;
+        return;
+      }
       newTask(); view = 'task'; break;
     }
     case 'go': location.href = v; return;

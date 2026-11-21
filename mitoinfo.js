@@ -65,6 +65,8 @@ export const INFO = {
   separase:['Сепараза','Фермент, который расщепляет определённые белковые мишени.','В начале анафазы расщепляет RAD21 и позволяет сестринским хроматидам разойтись. Сама к полюсам их не тянет.'],
   securin:['Секурин','Белок — ингибитор сепаразы.','Не даёт сепаразе действовать раньше времени. Его разрушение снимает один из механизмов блокировки фермента.'],
   checkpoint:['Контроль прикрепления','Белки, участвующие в проверке связи кинетохоров с веретеном.','Помогают задержать начало анафазы, пока остаются неприкреплённые кинетохоры.'],
+  mad12:['Mad1–Mad2','Белки контрольной точки на свободном кинетохоре.','Помогают собирать комплекс MCC, который задерживает начало анафазы.'],
+  mcc:['Комплекс MCC','Митотический контрольный комплекс. На модели он отходит от неприкреплённого кинетохора.','Подавляет активность APC/C–Cdc20, пока контрольная точка прикрепления активна.'],
 };
 export function infoTag(object,id,anchor) {
   object.userData.info=id;
@@ -74,26 +76,47 @@ export function infoTag(object,id,anchor) {
 // Выноска хранит координату в системе самой детали, чтобы следовать за ней.
 const targets = new WeakMap();
 
-export function bindInfoSurface(object, mesh, nearbyWorldPoint) {
-  const vertices = mesh.geometry.getAttribute('position');
-  const nearby = mesh.worldToLocal(nearbyWorldPoint.clone());
-  const vertex = new THREE.Vector3();
-  const point = new THREE.Vector3();
-  let closest = Infinity;
-  for (let i = 0; i < vertices.count; i++) {
-    vertex.fromBufferAttribute(vertices, i);
-    const distance = vertex.distanceToSquared(nearby);
-    if (distance < closest) {
-      closest = distance;
-      point.copy(vertex);
+export function bindInfoSurface(object, meshes, nearbyWorldPoint) {
+  const vertex = new THREE.Vector3(), instance = new THREE.Matrix4(), matrix = new THREE.Matrix4();
+  let owner = null, instanceId = null, vertexIndex = 0, closest = Infinity;
+  for (const mesh of Array.isArray(meshes) ? meshes : [meshes]) {
+    const vertices = mesh.geometry.getAttribute('position');
+    mesh.updateWorldMatrix(true, false);
+    for (let n = 0; n < (mesh.isInstancedMesh ? mesh.count : 1); n++) {
+      if (mesh.isInstancedMesh) {
+        mesh.getMatrixAt(n, instance);
+        if (instance.getMaxScaleOnAxis() === 0) continue;
+        matrix.multiplyMatrices(mesh.matrixWorld, instance);
+      } else matrix.copy(mesh.matrixWorld);
+      for (let i = 0; i < vertices.count; i++) {
+        const distance = vertex.fromBufferAttribute(vertices, i).applyMatrix4(matrix).distanceToSquared(nearbyWorldPoint);
+        if (distance < closest) {
+          closest = distance;
+          owner = mesh;
+          instanceId = mesh.isInstancedMesh ? n : null;
+          vertexIndex = i;
+        }
+      }
     }
   }
-  targets.set(object, { owner: mesh, point });
+  if (!owner) return null;
+  const point = vertex.fromBufferAttribute(owner.geometry.getAttribute('position'), vertexIndex);
+  const binding = { owner, point, instanceId };
+  targets.set(object, binding);
+  return binding;
 }
 
+const instanceMatrix = new THREE.Matrix4();
 export function infoWorldPoint(object, out = new THREE.Vector3()) {
   const target = targets.get(object);
-  if (target) return target.owner.localToWorld(out.copy(target.point));
+  if (target) {
+    out.copy(target.point);
+    if (target.instanceId !== null) {
+      target.owner.getMatrixAt(target.instanceId, instanceMatrix);
+      out.applyMatrix4(instanceMatrix);
+    }
+    return target.owner.localToWorld(out);
+  }
   if (object.userData.infoAnchor) return object.localToWorld(out.fromArray(object.userData.infoAnchor));
   const box = new THREE.Box3().setFromObject(object);
   return box.isEmpty() ? object.getWorldPosition(out) : box.getCenter(out);
@@ -227,6 +250,8 @@ export function createInspector({scene,camera,controls,canvas}) {
   function restoreMaterials(){for(const [u,value] of materialState)u.value=value;materialState=[];}
   function highlight(object) {
     restoreMaterials();const chosen=new Set();scene.traverse(o=>{if(o.userData.info===object.userData.info)o.traverse(c=>{if(c.material)chosen.add(c.material);});});
+    const binding=targets.get(object);
+    if(binding)chosen.add(binding.owner.material);
     const seen=new Set();scene.traverse(o=>{
       const u=o.material?.uniforms?.strength;if(!u||seen.has(u)||!isVisible(o))return;seen.add(u);
       materialState.push([u,u.value]);u.value*=chosen.has(o.material)?1.45:.35;

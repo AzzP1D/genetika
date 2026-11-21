@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Транскрипция — 3D</title>
+  <meta name="author" content="Гинько Егор Дмитриевич, учитель биологии и химии, ГУО «Боровская средняя школа имени Г.К. Жукова Лепельского района»">
+  <script src="./level.js?v=0.27"></script>
+  <script src="./path.js?v=0.27"></script>
+  <style>
+    :root { color-scheme: dark; --bg:#040710; --ink:#e8f7ff; --muted:#adc9dc; --cyan:#62f0ff; --edge:#2b485c; }
+    * { box-sizing:border-box }
+    body { margin:0; min-height:100svh; height:100dvh; display:grid; grid-template-rows:auto minmax(0,1fr) auto; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,sans-serif }
+    header,footer { z-index:1; padding:12px clamp(12px,3vw,30px); background:#081322; }
+    header { border-bottom:1px solid var(--edge); display:flex; justify-content:space-between; align-items:center; gap:10px }
+    footer { border-top:1px solid var(--edge); min-height:112px; }
+    h1 { margin:0; font-size:clamp(19px,4.6vw,28px); line-height:1.12; font-weight:720 }
+    #where { display:block; color:var(--cyan); font-size:12px; margin-top:3px }
+    [data-level=olymp] #where { color:#d9beff; }
+    header nav { display:flex; gap:6px; flex-shrink:0 }
+    button,a { font:inherit; color:var(--ink); }
+    header a, button { border:1px solid var(--edge); border-radius:10px; padding:6px 10px; background:#101f31; color:var(--ink); cursor:pointer; text-decoration:none; }
+    header a, header button { min-height:38px; font-size:13px; }
+    button[aria-pressed=true] { border-color:#e9b56f; background:#3d2d20; }
+    .spot[data-object=position-one] { border-color:#f2ce8d; color:#ffdf9f; font-weight:700; }
+    button:focus-visible, a:focus-visible { outline:2px solid #72faff; outline-offset:3px; }
+    main { position:relative; overflow:hidden; min-height:0; isolation:isolate; }
+    canvas { display:block; touch-action:none; }
+    #spots, #veil { position:absolute; inset:0; pointer-events:none; }
+    #veil { background:#050916; opacity:0; }
+    #part-info { position:absolute; z-index:2; inset:12px 12px auto; max-width:710px; padding:10px 12px; border:1px solid var(--edge); border-radius:12px; background:#0b1727ee; }
+    #part-info:not([hidden]) { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:8px }
+    #part-title { display:block; color:var(--cyan); font-size:14px; line-height:1.2; }
+    #part-copy { display:block; color:var(--muted); font-size:13px; line-height:1.32; margin-top:4px; }
+    #part-zoom { width:42px; height:42px; display:grid; place-items:center; padding:0 }
+    #part-zoom[hidden] { display:none }
+    #part-zoom svg { width:21px; height:21px; }
+    #part-more { display:none; }
+    body.showing-film #part-zoom { width:auto; min-height:42px; padding:0 9px; }
+    body.showing-film #part-more { display:block; font-size:12px; }
+    body.showing-film #part-zoom svg { display:none; }
+    #detail-content { font-size:14px; color:var(--muted); }
+    #detail-content[hidden], body.inspecting #lesson-content, body.inspecting #spots { display:none; }
+    #detail-title { display:block; margin:0; color:var(--ink); font-size:17px; line-height:1.25; }
+    #detail-copy { margin:4px 0; line-height:1.35; }
+    #detail-sources { margin:2px 0 0; color:var(--cyan); font-size:12px; display:flex; flex-wrap:wrap; gap:6px 14px; }
+    #detail-sources a { color:inherit; text-underline-offset:3px; }
+    #detail-controls { display:flex; flex-wrap:wrap; gap:5px 7px; margin-top:7px; }
+    #detail-controls button, #part-return { min-height:38px; font-size:13px; }
+    .detail-extra { flex-basis:100%; margin-top:3px; }
+    .detail-extra summary { width:fit-content; cursor:pointer; color:var(--cyan); font-size:13px; }
+    .detail-extra summary:focus-visible { outline:2px solid #72faff; outline-offset:3px; }
+    .detail-extra p { margin:4px 0 0; max-width:76ch; }
+    .spot { position:absolute; transform:translate(-50%,-50%); border-color:#6698aa; background:#0c2134ee; padding:3px 8px; line-height:1.24; font-size:clamp(12px,3vw,15px); min-height:38px; max-width:112px; pointer-events:auto; }
+    .spot[data-object^="termination-whole-"] { white-space:nowrap; }
+    .spot::after { content:''; position:absolute; inset:-3px; border-radius:12px; }
+    .socket { position:absolute; width:17px; height:17px; border:1px solid #ffda94; border-radius:50%; transform:translate(-50%,-50%); box-shadow:0 0 8px #ffbc615e; }
+    #instruction { display:block; font-size:clamp(17px,4vw,21px); line-height:1.2; font-weight:720; }
+    #description { margin:5px 0 0; color:var(--muted); font-size:14px; line-height:1.35; }
+    #description[data-kind=error] { color:#ffd3a4; }
+    #actions { display:flex; gap:8px; flex-wrap:wrap; }
+    #actions:empty { display:none; }
+    #actions button { min-height:38px; margin-top:8px; font-size:13px; }
+    #olymp-results { display:grid; gap:4px; margin:8px 0 0; font-size:13px; line-height:1.35; }
+    #olymp-results[hidden] { display:none; }
+    #olymp-results > div { display:grid; grid-template-columns:minmax(120px, 9.5em) 1fr; gap:3px 10px; }
+    #olymp-results dt { color:#e1caff; }
+    #olymp-results dd { margin:0; color:var(--muted); }
+    .spot[data-object=opening-protein] { border-color:#ab88dc; color:#e7d3ff; }
+    .spot[data-object=first-rna] { border-color:#e68bcf; color:#ffd1f3; }
+    #gene-map { margin-top:8px; color:var(--muted); font-size:12px; }
+    #gene-map[hidden] { display:none; }
+    #gene-map ol { display:flex; flex-wrap:wrap; align-items:center; gap:3px 7px; list-style:none; padding:0; margin:0 0 3px; }
+    #gene-map li { display:flex; align-items:center; gap:7px; }
+    #gene-map button { padding:3px 6px; min-height:32px; }
+    #gene-map button[data-topic=terminator] { border-color:#aa8754; color:#ffdf9f; }
+    #gene-map a { color:var(--cyan); text-underline-offset:2px; }
+    #movie-controls { display:flex; flex-wrap:wrap; gap:6px 8px; margin-top:9px; }
+    #movie-controls[hidden] { display:none; }
+    #movie-controls button { min-height:38px; font-size:13px; }
+    #movie-toggle { background:#123141; border-color:#518397; }
+    #movie-progress { display:block; flex:0 0 100%; width:100%; height:4px; margin-bottom:2px; accent-color:var(--cyan); }
+    @media (max-height:580px) { footer { min-height:84px; padding-block:8px } header { padding-block:6px } }
+  </style>
+  <script type="importmap">
+    { "imports": {
+      "three": "./lib/three.module.js",
+      "three/addons/": "./lib/addons/",
+      "./cellmodel.js": "./cellmodel.js?v=0.27",
+      "./nucleus.js": "./nucleus.js?v=0.27",
+      "./molecules.js": "./molecules.js?v=0.27",
+      "./organelles.js": "./organelles.js?v=0.27",
+      "./membrane.js": "./membrane.js?v=0.27",
+      "./cytoskeleton.js": "./cytoskeleton.js?v=0.27",
+      "./style.js": "./style.js?v=0.27",
+      "./transcription-preview-molecule.js": "./transcription-preview-molecule.js?v=0.27",
+      "./transcription-inspector.js": "./transcription-inspector.js?v=0.27",
+      "./transcription-elongation.js": "./transcription-elongation.js?v=0.27",
+      "./transcription-initiation-olymp.js": "./transcription-initiation-olymp.js?v=0.27",
+      "./transcription-termination-detail.js": "./transcription-termination-detail.js?v=0.27",
+      "./transcription-termination.js": "./transcription-termination.js?v=0.27.2"
+    } }
+  </script>
+  <script type="module" src="./transcription-preview.js?v=0.27"></script>
+</head>
+<body>
+  <header>
+    <div><h1>Транскрипция</h1><span id="where">Животная клетка</span></div>
+    <nav aria-label="Управление сценой">
+      <button id="glow" type="button" aria-label="Свечение" aria-pressed="true" title="Свечение">✦</button>
+      <a href="index.html">К карте</a>
+    </nav>
+  </header>
+  <main id="stage" aria-label="Интерактивная 3D-сцена">
+    <div id="spots"></div><div id="veil"></div>
+    <aside id="part-info" aria-label="Пояснение к объекту" hidden>
+      <div aria-live="polite"><strong id="part-title"></strong><span id="part-copy"></span></div>
+      <button id="part-zoom" type="button" aria-label="Рассмотреть в 3D" title="Рассмотреть в 3D">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.75"/><path d="m15 15 5 5"/></svg>
+        <span id="part-more">Подробнее</span>
+      </button>
+      <button id="part-return" type="button" hidden>К уроку</button>
+    </aside>
+  </main>
+  <footer>
+    <div id="lesson-content">
+      <div aria-live="polite" aria-atomic="true">
+        <strong id="instruction">Загружаем клетку…</strong>
+        <p id="description">Подготавливаем 3D-модели органоидов и полимеразы.</p>
+      </div>
+      <div id="gene-map" hidden>
+        <ol aria-label="Расположение участков ДНК">
+          <li><button type="button" data-topic="promoter">Промотор</button></li>
+          <li><span aria-hidden="true">→</span><button type="button" data-topic="start">+1</button></li>
+          <li><span aria-hidden="true">→</span>Ген</li>
+          <li><span aria-hidden="true">→</span><button type="button" data-topic="terminator">Терминатор</button></li>
+        </ol>
+        <a href="https://profil.adu.by/mod/book/view.php?id=3964" target="_blank" rel="noopener noreferrer">Биология, 11 класс · § 24</a>
+      </div>
+      <dl id="olymp-results" aria-label="Наблюдения в двух условиях" hidden></dl>
+      <div id="actions"></div>
+      <div id="movie-controls" hidden>
+        <progress id="movie-progress" max="1" value="0" aria-label="Ход ролика"></progress>
+        <button id="movie-toggle" type="button">Пауза</button>
+        <button id="movie-restart" type="button">С начала ролика</button>
+      </div>
+    </div>
+    <div id="detail-content" hidden>
+      <div aria-live="polite"><strong id="detail-title"></strong><p id="detail-copy"></p></div>
+      <div id="detail-sources"></div><div id="detail-controls"></div>
+    </div>
+  </footer>
+</body>
+</html>
