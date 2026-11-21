@@ -1,3 +1,4 @@
+import { infoTag } from './mitoinfo.js';
 import * as THREE from 'three';
 import { neon, textSprite } from './style.js';
 import { loadModel, PARTS } from './organelles.js';
@@ -77,7 +78,8 @@ export async function createKinetochore({ olymp = false } = {}) {
     const m = new THREE.InstancedMesh(geo[part], material, count);
     m.frustumCulled = false;
     asm.add(m);
-    return m;
+    const id=part.includes('tub_')?'microtubule':part.includes('ndc80')||part.includes('foot')?'ndc80':part.includes('mis12')?'mis12':part.includes('knl1')?'knl1':part.includes('ccan')?'ccan':part.includes('cenpa')?'cenpa':part.includes('dna')?'dna':part.includes('histone')?'histones':'checkpoint';
+    infoTag(m,id);return m;
   };
   const rnd = (i, k) => { const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x); };
 
@@ -118,7 +120,7 @@ export async function createKinetochore({ olymp = false } = {}) {
     const th = i / PF * Math.PI * 2 + (rnd(n, 1) - 0.5) * 0.5, r = 16 + (n % 3) * 7;
     const foot = new THREE.Vector3(Math.cos(th) * r, 22 + (n % 2) * 5 + rnd(n, 2) * 3, Math.sin(th) * r);
     const strands = [new Tube(26, 5, rodMat), new Tube(26, 5, rodMat)];
-    asm.add(strands[0].mesh, strands[1].mesh);
+    asm.add(strands[0].mesh, strands[1].mesh);strands.forEach(s=>infoTag(s.mesh,'ndc80'));
     // Все три части узла получают ОДНУ матрицу: положение из 8PPR сохраняется.
     const dir = new THREE.Vector3(-Math.cos(th) * 0.18 + (rnd(n, 4) - 0.5) * 0.3, 1, -Math.sin(th) * 0.18 + (rnd(n, 5) - 0.5) * 0.3).normalize();
     const rot = q.setFromUnitVectors(Y, dir).multiply(q2.setFromAxisAngle(Y, rnd(n, 6) * 6.28)).clone();
@@ -272,6 +274,8 @@ export async function createKinetochore({ olymp = false } = {}) {
     sp.position.copy(at);
     const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([at, to]), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.55 }));
     labels.add(sp, line);
+    const id=text.includes('Ndc80')?'ndc80':text.includes('Mis12')?'mis12':text.includes('CENP-A')?'cenpa':text.includes('Внутренний')?'ccan':'microtubule';
+    infoTag(sp,id,to.clone().sub(at));
   };
   label('Микротрубочка', '#a6ff5c', new THREE.Vector3(52, -84, 14), new THREE.Vector3(13, -84, 4));
   label('Комплекс Ndc80', '#ffd23f', new THREE.Vector3(-58, -10, 14), new THREE.Vector3(-30, -8, 6));

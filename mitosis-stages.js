@@ -1,3 +1,6 @@
+import { createTelophase } from './mitotelophase.js';
+import { createCytokinesis } from './mitocytokinesis.js';
+import { createSummary } from './mitosummary.js';
 import * as THREE from 'three';
 import { QUESTIONS, PARTS_INFO } from './mitosis-data.js';
 import { ease } from './motion.js';
@@ -13,7 +16,7 @@ const ORIGIN = new THREE.Vector3();
 
 // Вопрос с вариантами: у каждого неверного ответа — свой разбор ошибки.
 function ask(ui, q, done) {
-  ui.hud('<b>Вопрос</b><span>' + q.text + '</span>');
+  (ui.question||ui.hud)('<b>Вопрос</b><span>' + q.text + '</span>');
   ui.label(null);
   ui.buttons(q.options.map(([id, text]) => ({ text, onClick: () => {
     if (id !== q.answer) return ui.label('<b class="err">Нет.</b> ' + q.hints[id]);
@@ -29,6 +32,9 @@ function describe({ ui, world }, ray) {
 }
 
 export const SCENES = {
+  cytokinesis: createCytokinesis,
+  summary: createSummary,
+  telophase: createTelophase,
   anaphase: createAnaphase,
   // 0. Интерфаза: ядро с рыхлым хроматином и ядрышком; центросома удваивается;
   // вопрос о наборе после S-периода.
@@ -83,7 +89,7 @@ export const SCENES = {
     let mode = 'twist';              // twist → settle → packed → pull → placed → ask
     let sum = 0, last = null;        // набранный угол и прошлое направление на палец
     let cond = 0, idle = 0, helper = false;
-    let held = -1;                   // какую центросому держит палец
+    let held = -1, pullFrom = 0;     // какую центросому держит палец и откуда её взяли
     const goal = [0, 0], at = [0, 0];   // путь центросом к полюсам: куда тянут и где они сейчас
 
     // Подсказка жеста: пунктирное кольцо со стрелкой вокруг ядра.
@@ -92,11 +98,15 @@ export const SCENES = {
     document.body.appendChild(hint);
     const v = new THREE.Vector3();
     function placeHint() {
+      const depth = -v.set(0, 0, 0).applyMatrix4(camera.matrixWorldInverse).z;
       v.set(0, 0, 0).project(camera);
       const x = (v.x + 1) / 2 * innerWidth, y = (1 - v.y) / 2 * innerHeight;
-      const size = 2.5 * world.radius.nucleus / (camera.position.length() * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) * innerHeight / 2;
+      const size = depth > camera.near
+        ? 2.5 * world.radius.nucleus / (depth * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) * innerHeight / 2
+        : 0;
+      hint.hidden = size === 0;
       hint.style.cssText = 'left:' + x + 'px;top:' + y + 'px;width:' + size + 'px;height:' + size + 'px';
-      return [x, y];
+      return [x, y, size];
     }
 
     function packed() {
@@ -153,13 +163,16 @@ export const SCENES = {
       intro() {
         ctx.lock(true);   // пока идёт задание, палец скручивает хроматин, а не вращает клетку
         ctx.fly(VIEW.clone().multiplyScalar(ctx.fit(world.radius.nucleus) * 1.5), ORIGIN.clone(), 1.8);
-        ui.hud('<b>Профаза</b><span>Хроматин скручивается в хромосомы. Помогите ему: ведите пальцем по кругу вокруг ядра.</span>');
+        ui.hud('<b>Профаза</b><span>Хроматин скручивается в хромосомы. Начните у пунктирного кольца и ведите по кругу вокруг ядра.</span>');
         ui.buttons([]);
       },
       drag(phase, x, y) {
         if (mode === 'twist') {
-          const [cx, cy] = placeHint();
-          const far = Math.hypot(x - cx, y - cy) > 24;
+          if (phase === 'cancel') { last = null; return; }
+          const [cx, cy, size] = placeHint();
+          const distance = Math.hypot(x - cx, y - cy);
+          if (phase === 'down' && (!size || distance < Math.max(24, size * .23) || distance > size * .78)) return false;
+          const far = distance > 24;
           const a = Math.atan2(y - cy, x - cx);
           if (phase === 'move' && last !== null && far) {
             const d = a - last;
@@ -172,9 +185,11 @@ export const SCENES = {
         if (mode !== 'pull') return false;
         if (phase === 'down') {
           held = grab(x, y);
+          if (held >= 0) pullFrom = goal[held];
           return held >= 0;
         }
         if (held < 0) return false;
+        if (phase === 'cancel') { goal[held] = pullFrom; held = -1; return; }
         idle = 0;
         if (phase !== 'up') goal[held] = wayUnder(held, x, y);
         else { if (goal[held] > 0.85) goal[held] = 1; held = -1; }   // рядом с меткой — встаёт на место сама
@@ -382,6 +397,7 @@ export const SCENES = {
       },
       drag(phase, x, y) {
         if (mode !== 'task') return false;
+        if (phase === 'cancel') { held = -1; sp.probe(0, null); return; }
         // Ошибку ученик может исправить сразу: новый жест снимает «отсыхающую» нить.
         if (undo) { sp.detach(undo.key); undo = null; }
         if (phase === 'down') {
@@ -658,6 +674,9 @@ export const SCENES = {
             held.goal.p.copy(world.group.worldToLocal(hit.clone()));
           }
           idle = 0;
+        } else if (phase === 'cancel') {
+          held.goal.p.copy(dragFrom);
+          held = null;
         } else if (phase === 'up') {
           const marker = targets[cur].getWorldPosition(new THREE.Vector3());
           if (distanceOnScreen(marker, x, y) < 130) placeCurrent();

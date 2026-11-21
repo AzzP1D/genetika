@@ -55,6 +55,8 @@ function outlineMaterial(width) {
     vertexShader: /* glsl */`
       uniform float width;
       #include <fog_pars_vertex>
+      // Та же защита, что в neon: вырожденная нормаль даёт NaN и «битые» треугольники.
+      vec3 safeNorm(vec3 v) { float l = length(v); return l > 1e-5 && l < 1e5 ? v / l : vec3(0.0, 0.0, 1.0); }
       void main() {
         vec4 p = vec4(position, 1.0);
         vec3 n = normal;
@@ -63,7 +65,7 @@ function outlineMaterial(width) {
           n = mat3(instanceMatrix) * n;
         #endif
         vec4 mvPosition = modelViewMatrix * p;
-        mvPosition.xyz += normalize(normalMatrix * n) * width * -mvPosition.z;
+        mvPosition.xyz += safeNorm(normalMatrix * n) * width * -mvPosition.z;
         gl_Position = projectionMatrix * mvPosition;
         #include <fog_vertex>
       }`,
@@ -183,11 +185,12 @@ export function halo(mesh, color, width = 0.035, strength = 0.9) {
       uniform float width;
       varying vec3 vNormal;
       varying vec3 vView;
+      vec3 safeNorm(vec3 v) { float l = length(v); return l > 1e-5 && l < 1e5 ? v / l : vec3(0.0, 0.0, 1.0); }
       void main() {
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-        vNormal = normalize(normalMatrix * normal);
+        vNormal = safeNorm(normalMatrix * normal);
         mvPosition.xyz += vNormal * width * -mvPosition.z;
-        vView = normalize(-mvPosition.xyz);
+        vView = safeNorm(-mvPosition.xyz);
         gl_Position = projectionMatrix * mvPosition;
       }`,
     fragmentShader: /* glsl */`

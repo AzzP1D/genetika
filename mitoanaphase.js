@@ -5,6 +5,15 @@ import { createCohesion } from './mitocohesin.js';
 import { neon } from './style.js';
 import { ease } from './motion.js';
 
+// При прямом входе в телофазу восстанавливаем те же пучки, что были в конце анафазы.
+export function attachAnaphaseFibers(world) {
+  world.chromosomes.forEach((ch, i) => {
+    for (let sister = 0; sister < 2; sister++) {
+      world.spindle.attach('ana:' + i + ':' + sister, sister, out => world.kinetochore(ch, sister, out), 1);
+    }
+  });
+}
+
 // Анафаза: сначала снять когезию, затем показать движение и изменение счёта.
 // Молекулярное действие иллюстрирует одновременное снятие множества связей в клетке.
 export function createAnaphase(ctx) {
@@ -27,9 +36,7 @@ export function createAnaphase(ctx) {
   world.envelope(1);world.cond(1);sp.dup(1);sp.spread(1,1);sp.open(1);sp.elongate(0);
   world.elongation=0;
   sp.clear();
-  world.chromosomes.forEach((ch,i)=>{
-    for(let sister=0;sister<2;sister++) sp.attach('ana:'+i+':'+sister,sister,out=>world.kinetochore(ch,sister,out),1);
-  });
+  attachAnaphaseFibers(world);
   const heldMat=neon(0xff5e7a,{glow:1.2,body:.5});
   const heldGeo=new THREE.TorusGeometry(.4,.035,6,36);
   const ties=world.chromosomes.map(ch=>{
@@ -40,11 +47,11 @@ export function createAnaphase(ctx) {
   const overview=()=>new THREE.Vector3(.35,.25,1).normalize().multiplyScalar(fit(world.radius.cell)*1.2);
   function setCamera(position,target) {camera.position.copy(position);controls.target.copy(target);camera.lookAt(target);}
   function sources() {
-    ui.label('<b>О моделях</b><br>Сепараза и секурин: <a href="https://www.rcsb.org/structure/7NJ1" target="_blank" rel="noopener">7NJ1</a>, Yu et al., 2021. Домены SMC1/SMC3: <a href="https://www.rcsb.org/structure/6WG3" target="_blank" rel="noopener">6WG3</a>, Shi et al., 2020. Данные RCSB PDB, CC0.'+
-      '<br>Нуклеосомы: <a href="https://www.rcsb.org/structure/1KX5" target="_blank" rel="noopener">1KX5</a>, Davey et al., 2002. STAG1: 6WG3. Длинные спиральные плечи, шарнир, гибкий RAD21, соединительные участки хроматина и движение — учебная реконструкция. Раскрытая форма выбрана для объяснения; когезин может складываться. Расположение отдельных доменов в сборке условное. 6WG3 — инженерный комплекс загрузки; здесь не воспроизводится его устойчивость к расщеплению. 7NJ1 показывает ингибированную сепаразу: её действие на мишень реконструировано.');
+    ui.label('<b>О моделях</b><br>Сепараза и секурин: <a href="https://www.rcsb.org/structure/7NJ1" target="_blank" rel="noopener">7NJ1</a>, Yu et al., 2021. Головки и шарнир SMC1/SMC3, концевые участки RAD21: <a href="https://www.rcsb.org/structure/6WG3" target="_blank" rel="noopener">6WG3</a>, Shi et al., 2020. Данные RCSB PDB, CC0.'+
+      '<br>Нуклеосомы: <a href="https://www.rcsb.org/structure/1KX5" target="_blank" rel="noopener">1KX5</a>, Davey et al., 2002. STAG1: 6WG3. Длинные спиральные плечи, гибкая середина RAD21, соединительные участки хроматина и движение — учебная реконструкция. Раскрытая форма выбрана для объяснения; когезин может складываться. Расположение отдельных доменов в сборке условное. 6WG3 — инженерный комплекс загрузки; здесь не воспроизводится его устойчивость к расщеплению. 7NJ1 показывает ингибированную сепаразу: её действие на мишень реконструировано.');
   }
   function questionUI(q,done) {
-    ui.hud('<b>Проверим причину и следствие</b><span>'+q.text+'</span>');
+    (ui.question||ui.hud)('<b>Проверим причину и следствие</b><span>'+q.text+'</span>');
     ui.buttons(q.options.map(([id,text])=>({text,onClick:()=>{
       if(id!==q.answer){ui.label('<b class="err">Нет.</b> '+q.hints[id]);return;}
       ui.label('<b class="ok">Верно!</b> '+q.ok);
@@ -94,7 +101,7 @@ export function createAnaphase(ctx) {
   }
   function target() {
     mode='target';
-    ui.hud('<b>Сепараза активна. Выберите её мишень.</b><span>Что нужно расщепить, чтобы освободить сестринские хроматиды и сохранить наследственную информацию?</span>');
+    (ui.question||ui.hud)('<b>Сепараза активна. Выберите её мишень.</b><span>Что нужно расщепить, чтобы освободить сестринские хроматиды и сохранить наследственную информацию?</span>');
     ui.buttons([
       {text:'ДНК в центромере',onClick:()=>ui.label('<b class="err">ДНК разрезать нельзя.</b> Это повредит наследственную информацию. Сепараза расщепляет белок, а не ДНК.')},
       {text:'Белок когезина (RAD21)',onClick:()=>{
@@ -173,12 +180,13 @@ export function createAnaphase(ctx) {
         if(u===1)finished();
       }
     },
-    leave(){
+    leave({carryAnaphase=false}={}){
       live=false;
       if(micro){scene.remove(micro.group);micro.dispose();micro=null;}
       else loading.then(k=>{if(k&&!k.error)k.dispose();});
       world.group.visible=true;controls.enabled=true;camera.far=60;camera.updateProjectionMatrix();
-      ties.forEach(t=>t.removeFromParent());heldGeo.dispose();heldMat.dispose();sp.clear();
+      ties.forEach(t=>t.removeFromParent());heldGeo.dispose();heldMat.dispose();
+      if(!carryAnaphase)sp.clear();
     },
   };
 }
