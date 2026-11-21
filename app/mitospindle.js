@@ -150,16 +150,22 @@ export function createSpindle({ nucleusR, cellR, olymp = false }) {
   }
 
   const A = new THREE.Vector3(), B = new THREE.Vector3(), M = new THREE.Vector3(), S = new THREE.Vector3();
+  const centralPoint = new THREE.Vector3();
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), zero = new THREE.Vector3();
-  let shift = 0, extension = 0;
+  let shift = 0, extension = 0, centralK = 0, bridgePinch = 0, bridgeClearance = 0, bridgeDecay = 0;
   // Точка нити: u = 0 — у верхней центросомы, 1 — у нижней.
   function fiberPoint(u, out) {
     const w = 2 * u * (1 - u) * 1.2;
     out.copy(A).multiplyScalar((1 - u) * (1 - u)).addScaledVector(M, w).addScaledVector(B, u * u).normalize();
     S.crossVectors(out, UP).normalize();
     const r = R + (fiberPoint.r - R) * Math.sin(Math.PI * u);
-    out.multiplyScalar(r).addScaledVector(S, shift);
+    out.multiplyScalar(r);
     out.y *= 1 + .18 * extension;
+    if (centralK > 0) {
+      centralPoint.copy(M).multiplyScalar(fiberPoint.centralRadius).addScaledVector(UP, 9 * (.5 - u));
+      out.lerp(centralPoint, centralK);
+    }
+    out.addScaledVector(S, shift);
   }
 
   // ---------- нити к кинетохорам ----------
@@ -218,6 +224,12 @@ export function createSpindle({ nucleusR, cellR, olymp = false }) {
     // Путь центросом к полюсам: a — верхней, b — нижней (0…1).
     spread(a, b) { way[0] = a; way[1] = b; },
     elongate(k) { extension = THREE.MathUtils.clamp(k, 0, 1); },
+    // В телофазе полярные нити собираются в пучок между дочерними ядрами.
+    compact(k) { centralK = k; },
+    // В мостике концы микротрубочек расходятся по обе стороны от места разрыва.
+    constrictBridge(pinch, clearance = 0, decay = 0) {
+      bridgePinch = pinch; bridgeClearance = clearance; bridgeDecay = decay;
+    },
     // Контрольная точка проверяет реальные нити, а не только положение хромосом.
     attached(key, pole) {
       const f = kfibers.get(key);
@@ -227,7 +239,9 @@ export function createSpindle({ nucleusR, cellR, olymp = false }) {
     // Где окажется центросома i, пройдя долю пути k (0 — исходное место, 1 — полюс).
     placeOf(i, k, out) {
       const ang = NEAR * dupK + (Math.PI / 2 - NEAR) * k;
-      return out.copy(START).multiplyScalar(R * Math.cos(ang)).addScaledVector(UP, centrosomes[i].sign * R * Math.sin(ang) * (1 + .18 * extension));
+      // Центросомы смещаются наружу, освобождая место для дочерних ядер.
+      const poleR = R * (1 + .18 * extension) + 1.16 * centralK * (2 - centralK);
+      return out.copy(START).multiplyScalar(R * Math.cos(ang)).addScaledVector(UP, centrosomes[i].sign * poleR * Math.sin(ang));
     },
     markers(on) { for (const c of centrosomes) c.marker.visible = on; },
     // Оболочка ядра распалась (0…1): лучи заходят в область ядра, а нити между полюсами
@@ -244,6 +258,7 @@ export function createSpindle({ nucleusR, cellR, olymp = false }) {
     },
     // Нить отсоединяется и втягивается к полюсу.
     detach(key) { const f = kfibers.get(key); if (f) f.goal = 0; },
+    releaseKinetochores() { for (const f of kfibers.values()) f.goal = 0; },
     clear() { for (const key of [...kfibers.keys()]) remove(key); probePole = -1; },
     // Пробная нить от полюса к точке под пальцем (point = null — убрать).
     probe(pole, point) { probePole = point ? pole : -1; if (point) probeEnd.copy(point); },
@@ -257,7 +272,7 @@ export function createSpindle({ nucleusR, cellR, olymp = false }) {
         c.group.scale.setScalar(size);
         c.body.rotation.y += dt * 0.25;
         for (let j = 0; j < RAYS; j++) {
-          const len = Math.min(rayLength(t, c.rhythm[j]), room(c.group.position, c.dirs[j]));
+          const len = Math.min(rayLength(t, c.rhythm[j]) * (1 - .82 * centralK), room(c.group.position, c.dirs[j]));
           m4.compose(zero, q.setFromUnitVectors(UP, c.dirs[j]), sc.set(0.02, Math.max(len, 0.01), 0.02));
           c.rays.setMatrixAt(j, m4);
         }
@@ -273,17 +288,27 @@ export function createSpindle({ nucleusR, cellR, olymp = false }) {
       const sep = (way[0] + way[1]) / 2;
       const grown = 0.56 * THREE.MathUtils.smoothstep(sep, 0.02, 0.85);
       const fan = THREE.MathUtils.smoothstep(sep, 0.05, 0.9);
+      const from = .40 * centralK + .009 * bridgePinch;
+      const mix = THREE.MathUtils.lerp;
+      const radius = mix(mix(.03,.021,centralK),.027,bridgePinch)*(1-.8*bridgeDecay);
+      const overlap = THREE.MathUtils.lerp(grown, .54, centralK);
       A.copy(centrosomes[0].group.position).normalize();
       B.copy(centrosomes[1].group.position).normalize();
-      for (const f of fibers) {
-        const show = grown > 0.03;
+      for (const [i, f] of fibers.entries()) {
+        const show = grown > 0.03 && bridgeDecay < 1;
         f.halves[0].mesh.visible = f.halves[1].mesh.visible = show;
         if (!show) continue;
         M.copy(START).applyAxisAngle(UP, f.lon * fan);
-        fiberPoint.r = f.r + (f.slim - f.r) * slimK;
-        const breath = 0.03 * Math.sin(t * 0.8 + f.lon * 3);   // концы нитей слегка «дышат»
-        shift = 0.05; f.halves[0].set(fiberPoint, 0, grown + breath, 0.03);
-        shift = -0.05; f.halves[1].set(fiberPoint, 1, 1 - grown + breath, 0.03);
+        fiberPoint.r = THREE.MathUtils.lerp(f.r, f.slim, slimK);
+        fiberPoint.centralRadius = (.14 + (f.slim - 1.25) * .26) * (1 - .53 * bridgePinch);
+        const breath = 0.03 * Math.sin(t * 0.8 + f.lon * 3) * (1 - centralK);
+        const clear = THREE.MathUtils.smoothstep(bridgeClearance, (i % 4) * .085, .76 + (i % 4) * .07);
+        const upperEnd = mix(overlap+breath+.045*bridgePinch,.552-(i%3)*.005,clear);
+        const lowerEnd = mix(1-overlap+breath,.593+(i%3)*.005,clear);
+        shift = 0.05;
+        f.halves[0].set(fiberPoint,mix(from,.487,bridgeDecay),mix(upperEnd,.51,bridgeDecay),radius);
+        shift = -0.05;
+        f.halves[1].set(fiberPoint,mix(1-from+.035*bridgePinch,.604,bridgeDecay),mix(lowerEnd,.604,bridgeDecay),radius);
       }
 
       // Нити к кинетохорам.

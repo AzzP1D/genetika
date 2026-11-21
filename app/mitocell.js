@@ -41,7 +41,11 @@ const breakNoise = p => 0.5 + 0.5 * Math.sin(p.x * 1.9 + 1.3 * Math.sin(p.y * 1.
 // Мембрана оболочки ядра: светящееся «стекло», которое умеет распадаться (uBreak 0…1).
 function shell(p) {
   return new THREE.ShaderMaterial({
-    uniforms: { uColor: { value: new THREE.Color(p.color) }, glow: { value: p.glow }, power: { value: p.power }, strength: { value: p.strength }, uBreak: { value: 0 } },
+    uniforms: {
+      uColor: { value: new THREE.Color(p.color) }, glow: { value: p.glow }, power: { value: p.power },
+      strength: { value: p.strength }, uBreak: { value: 0 }, uRebuild: { value: -1 },
+      uBuildAxis: { value: new THREE.Vector3() }, uBuildPole: { value: 0 },
+    },
     vertexShader: /* glsl */`
       varying vec3 vNormal;
       varying vec3 vView;
@@ -55,7 +59,8 @@ function shell(p) {
       }`,
     fragmentShader: /* glsl */`
       uniform vec3 uColor;
-      uniform float glow, power, strength, uBreak;
+      uniform float glow, power, strength, uBreak, uRebuild, uBuildPole;
+      uniform vec3 uBuildAxis;
       varying vec3 vNormal;
       varying vec3 vView;
       varying vec3 vPos;
@@ -65,6 +70,15 @@ function shell(p) {
         if (uBreak > 0.0 && edge < 0.0) discard;
         float rim = pow(1.0 - clamp(abs(dot(normalize(vNormal), normalize(vView))), 0.0, 1.0), power);
         float burn = uBreak > 0.0 ? 1.0 - smoothstep(0.0, 0.1, edge) : 0.0;   // края дыр светятся
+        if (uRebuild >= 0.0) {
+          // Та же граница роста, по которой mitoenvelope.js определяет время появления поры.
+          vec3 d = normalize(vPos);
+          float arrival = 0.46 + 0.38 * dot(d, uBuildAxis) + 0.055 * d.y * d.z;
+          float gap = smoothstep(0.76, 0.98, -d.y * uBuildPole);
+          float front = uRebuild - mix(arrival, 0.96, gap);
+          if (front < 0.0) discard;
+          burn = (1.0 - smoothstep(0.0, 0.065, front)) * (1.0 - smoothstep(0.95, 1.0, uRebuild));
+        }
         vec3 c = uColor * rim * glow + vec3(pow(rim, 6.0) * 0.35) + uColor * burn * 0.9;
         gl_FragColor = vec4(clamp(c * strength, 0.0, 8.0), 1.0);
         #include <colorspace_fragment>
@@ -252,7 +266,7 @@ export function createWorld() {
         ch.group.position.lerp(ch.goal.p, k);
         ch.group.quaternion.slerp(ch.goal.q, k);
       }
-      spindle.update(dt, t);
+      if (spindle.group.visible) spindle.update(dt, t);
       if (breakK > 0) {
         vesicleAt.forEach((o, i) => {
           const born = THREE.MathUtils.clamp((breakK * 1.1 - o.n) / 0.3, 0, 1);

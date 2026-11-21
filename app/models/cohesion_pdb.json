@@ -7,7 +7,31 @@
     -3.946319818496704,
     7.450580596923828e-08
   ],
-  "reconstruction": "Open cohesin architecture, SMC coiled coils and hinge, RAD21 path, chromatin linkers, assembly placement and cleavage motion are illustrative. STAG1 and heads: 6WG3; nucleosome histones and DNA backbone: 1KX5; inhibited separase: 7NJ1.",
+  "reconstruction": "Open cohesin architecture, SMC coiled coils, unresolved RAD21 linker, chromatin linkers, assembly placement and cleavage motion are illustrative. Hinge, RAD21 terminal interfaces, STAG1 and heads: 6WG3; nucleosome histones and DNA backbone: 1KX5; inhibited separase: 7NJ1.",
+  "hingeTips": [
+    [
+      -1.3642189502716064,
+      -1.3599116802215576,
+      4.470348358154297e-07
+    ],
+    [
+      1.364221215248108,
+      -2.409623622894287,
+      3.8743019104003906e-07
+    ]
+  ],
+  "rad21Tips": [
+    [
+      1.7097347974777222,
+      -3.1998066902160645,
+      -1.381304383277893
+    ],
+    [
+      -8.39767074584961,
+      2.0125060081481934,
+      1.382490634918213
+    ]
+  ],
   "nucleosomeSource": "1KX5",
   "nucleosomeStrands": [
     [

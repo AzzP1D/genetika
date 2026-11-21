@@ -10,7 +10,7 @@
 # в гладкую поверхность. Единица модели — 1 нм. Каждая деталь лежит в начале координат в своей
 # системе отсчёта (описана у детали); кинетохор из деталей собирает приложение (mitokinet.js).
 # Запуск: tools\blender.ps1 blender\models\kinetochore_pdb.py
-import os, sys, re
+import os, sys, re, gzip
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import bpy
 from mathutils import Vector, Matrix
@@ -26,7 +26,9 @@ def beads(name):
     # Шарики структуры: [(сущность, цепь, номер остатка, вид, точка в нм)], вид — res / bb / base.
     cols, rows = [], []
     tok = re.compile(r"'[^']*'|\"[^\"]*\"|\S+")
-    with open(os.path.join(lib.ROOT, 'models_raw', 'pdb', name + '.cif'), encoding='utf-8') as f:
+    path = os.path.join(lib.ROOT, 'models_raw', 'pdb', name + '.cif')
+    source = open(path, encoding='utf-8') if os.path.isfile(path) else gzip.open(path + '.gz', 'rt', encoding='utf-8')
+    with source as f:
         for line in f:
             if line.startswith('_atom_site.'):
                 cols.append(line.split('.', 1)[1].strip())

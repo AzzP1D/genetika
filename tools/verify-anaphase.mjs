@@ -81,7 +81,14 @@ for(const olymp of [false,true]) {
   click('16 во всей клетке; по 8 у каждого полюса');click('Далее');
   click('Нет. Количество ДНК осталось прежним — разделились уже имеющиеся копии');click('Далее');
   if(olymp){click('Во всей клетке 4n4c; у одного полюса 2n2c');click('Далее');}
-  click('К телофазе');assert.equal(next,1);stage.leave();
+  const spindleMeshes = world.spindle.group.children.filter(o => o.isMesh && o.visible);
+  click('К телофазе');assert.equal(next,1);stage.leave({ carryAnaphase: true });
+  world.carryAnaphase = true;
+  const telophase = SCENES.telophase(ctx);telophase.intro();
+  world.update(1/30, time);
+  assert(spindleMeshes.every(mesh => mesh.parent === world.spindle.group && mesh.visible),
+    'В первом кадре телофазы должны остаться видимы нити конца анафазы');
+  telophase.leave();
   world.pose('metaphase');
   for(const ch of world.chromosomes)for(const s of ch.chromatids){assert(Math.abs(s.object.position.x)<1e-12);assert.equal(s.material.uniforms.uBend.value,BEND.meta);}
   // Обычный переход из готовой метафазы сохраняет позы, а не пересоздаёт ядро.

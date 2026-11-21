@@ -2,7 +2,7 @@
 # 7NJ1 — human separase–securin (Yu et al., 2021; RCSB PDB CC0).
 # 6WG3 — human cohesin–NIPBL–DNA (Shi et al., 2020; CC0).
 # 6WG3 — инженерный комплекс загрузки с некливажными заменами RAD21:
-# берём только глобулярные домены. Мишень RAD21 и длинные плечи реконструирует JS.
+# используем измеренные части, достраиваем отсутствующие участки для анимации.
 import os, sys, json, re
 sys.path.insert(0,os.path.join(os.path.dirname(__file__),'..'))
 import bpy
@@ -31,12 +31,30 @@ meta={'unit':'nm','separaseSource':'7NJ1','cohesinSource':'6WG3','activeSite':li
 print('OK separase active site (nm)',meta['activeSite'])
 
 b=beads('6WG3')
+head_frames={}
 for entity,name,color in [('1','coh_smc1',0x6e8cff),('2','coh_smc3',0x927aff)]:
     # N- и C-концы SMC сходятся в ATPase-головке, длинные coiled coils сюда не входят.
     pts=[p for e,ch,s,k,p in b if e==entity and (s<170 or s>1040)]
     ax=axes_of(pts);f=Frame(mean(pts),ax[1],ax[0])
+    head_frames[entity]=f
     blob(name,[('res',p) for p in pts],f,color,1000,.35)
     print('OK head',name,'residues',len(pts))
+# Обе цепи шарнира экспортируем в одной системе координат 6WG3.
+hinge_sets=[sorted((s,p) for e,ch,s,k,p in b if e==entity and lo<=s<=hi)
+            for entity,lo,hi in [('1',491,655),('2',493,683)]]
+tips=[mean([rows[0][1],rows[-1][1]]) for rows in hinge_sets]
+hinge_center=mean([p for rows in hinge_sets for s,p in rows])
+hinge_frame=Frame(hinge_center,tips[1]-tips[0],hinge_center-mean(tips))
+for i,rows in enumerate(hinge_sets):
+    blob('coh_hinge'+str(i+1),[('res',p) for s,p in rows],hinge_frame,[0x6e8cff,0x927aff][i],1400,.28)
+meta['hingeTips']=[list(hinge_frame.to(p)) for p in tips]
+# Концевые участки RAD21 сохраняют общие координаты со своими головками.
+meta['rad21Tips']=[]
+for name,entity,lo,hi,tail in [('coh_rad21c','1',558,630,558),('coh_rad21n','2',10,92,92)]:
+    rows=[(s,p) for e,ch,s,k,p in b if e=='3' and lo<=s<=hi]
+    f=head_frames[entity]
+    blob(name,[('res',p) for s,p in rows],f,0xff5e7a,700,.27)
+    meta['rad21Tips'].append(list(f.to(next(p for s,p in rows if s==tail))))
 # STAG1: экспериментальная форма, положение в раскрытой учебной сборке условное.
 pts=[p for e,ch,s,k,p in b if e=='4']
 ax=axes_of(pts);f=Frame(mean(pts),ax[1],ax[0])
@@ -49,9 +67,9 @@ blob('coh_histones',[('res',p) for p in hist],f,0xc08bff,1100,.3)
 chains=sorted(set(ch for e,ch,s,k,p in nuc if k=='bb'))
 meta['nucleosomeSource']='1KX5'
 meta['nucleosomeStrands']=[ [list(f.to(p)) for e,ch,s,k,p in sorted(nuc,key=lambda v:v[2]) if ch==chain and k=='bb'] for chain in chains ]
-meta['reconstruction']='Open cohesin architecture, SMC coiled coils and hinge, RAD21 path, chromatin linkers, assembly placement and cleavage motion are illustrative. STAG1 and heads: 6WG3; nucleosome histones and DNA backbone: 1KX5; inhibited separase: 7NJ1.'
+meta['reconstruction']='Open cohesin architecture, SMC coiled coils, unresolved RAD21 linker, chromatin linkers, assembly placement and cleavage motion are illustrative. Hinge, RAD21 terminal interfaces, STAG1 and heads: 6WG3; nucleosome histones and DNA backbone: 1KX5; inhibited separase: 7NJ1.'
 lib.export('cohesion_pdb');lib.report('cohesion_pdb')
 with open(os.path.join(lib.ROOT,'app/models/cohesion_pdb.json'),'w',encoding='utf-8') as out:json.dump(meta,out,indent=2)
 # Экспортированные части центрированы; на превью разложены для проверки формы.
-for name,at in [('coh_smc1',(-13,0,0)),('coh_smc3',(13,0,0))]:bpy.data.objects[name].location=at
+for name,at in [('coh_smc1',(-13,0,0)),('coh_smc3',(13,0,0)),('coh_rad21c',(-13,0,0)),('coh_rad21n',(13,0,0)),('coh_hinge1',(0,0,14)),('coh_hinge2',(0,0,14))]:bpy.data.objects[name].location=at
 lib.preview('cohesion_pdb',900)

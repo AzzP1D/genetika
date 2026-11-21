@@ -7,6 +7,7 @@
   <meta name="author" content="Гинько Егор Дмитриевич, учитель биологии и химии, ГУО «Боровская средняя школа имени Г.К. Жукова Лепельского района»">
   <meta name="copyright" content="© 2026 Гинько Егор Дмитриевич. Все права защищены.">
   <link rel="stylesheet" href="level.css?v=0.26">
+  <link rel="stylesheet" href="mitopore.css?v=0.26">
   <script src="level.js?v=0.26"></script>
   <style>
     /* Интерфейс урока — как в «Репликации ДНК» (cell.html), плюс полоска этапов над заголовком. */
@@ -21,6 +22,11 @@
       text-shadow: 0 0 10px rgb(var(--c-rgb) / 0.6); margin-bottom: 2px; }
     #hud span { color: #cfeff7; }
     #hud .hint { color: #7fb8c4; font-size: 13px; }
+    #hudText[data-hold] { pointer-events: auto; touch-action: none; user-select: none; cursor: grab; }
+    #hudText[data-held] { cursor: grabbing; }
+    #hudText .hold-hint { display: block; margin-top: 6px; }
+    #hudText .hold-active, #hudText[data-held] .hold-idle { display: none; }
+    #hudText[data-held] .hold-active { display: block; color: var(--cyan); }
     /* Полоска этапов: пройденные — второй акцент, текущий светится, впереди — тусклые. */
     #rail { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
     #rail i { flex: 1; height: 4px; border-radius: 2px; background: rgb(var(--c-rgb) / 0.16); transition: background .5s, box-shadow .5s; }
@@ -50,6 +56,26 @@
     #buttons.column { flex-direction: column; }
     #buttons.column button { flex: none; text-align: left; padding: 10px 14px; font-weight: 500; }
     #buttons button:disabled { opacity: .4; cursor: default; box-shadow: none; }
+    .cyto-lesson { max-width: 880px; }
+    .cyto-lesson small { display: block; margin: 4px 0; color: #b5d5df; font-size: 11px; line-height: 1.2; }
+    .cyto-track { display: flex; width: min(280px, 100%); gap: 5px; align-items: center; }
+    .cyto-track i { flex: 1; height: 2px; background: #8cc1cf42; }
+    .cyto-track .done { background: #8adacc; }
+    .cyto-track .now { background: var(--cyan); box-shadow: 0 0 9px var(--cyan); }
+    .cyto-track small { font-variant-numeric: tabular-nums; margin: 0 0 0 3px; }
+    .cyto-lesson details { pointer-events: auto; margin: 6px 0 0; color: #cfeff7; }
+    .cyto-lesson summary { cursor: pointer; width: fit-content; color: #a9dedf; font-size: 13px; }
+    .cyto-lesson details div { padding: 0 10px; margin: 6px 0 0; max-height: 24dvh; overflow: auto; border-left: 1px solid #81d9df88; }
+    .cyto-lesson p { margin: 0 0 7px; }
+    .cyto-lesson a { color: #9becee; }
+    .cyto-lesson .cyto-sources { color: #a7c5ce; font-size: 12px; }
+    #buttons.cyto-controls button { min-height: 43px; font-size: clamp(13px,2vw,16px); }
+    #buttons.cyto-controls:not(.column) .primary { flex: 2; }
+    @media(max-width: 520px) {
+      #buttons.cyto-controls:not(.column) .primary { flex-basis: 100%; }
+      #buttons.cyto-controls.column { gap: 5px; }
+      #buttons.cyto-controls.column button { padding: 6px 12px; }
+    }
     #fade { position: fixed; inset: 0; background: var(--ink); opacity: 0; pointer-events: none; transition: opacity .6s; }
     #fade.on { opacity: 1; }
     #back { position: fixed; right: 20px; top: 20px; color: var(--cyan); text-decoration: none; font-size: 14px;
@@ -61,6 +87,76 @@
       color: #7fd8e866; pointer-events: none; }
     #loading { position: fixed; inset: 0; display: grid; place-items: center; color: var(--cyan);
       letter-spacing: .12em; text-shadow: 0 0 12px rgb(var(--c-rgb)); }
+    #hud #label { background: none; border: 0; box-shadow: none; padding: 8px 0 0; }
+    #question { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+    #question b { display: block; color: var(--cyan); margin-bottom: 5px; }
+    #mito-summary { --summary-top: 130px; position: fixed; inset: var(--summary-top) 12px auto; max-height: calc(100vh - var(--summary-top) - 84px); z-index: 2; padding: 12px clamp(10px, 2vw, 25px); background: #07121af5; border: 1px solid var(--line); border-radius: 14px; overflow: auto; }
+    #mito-summary[hidden] { display: none; }
+    .summary-prompt { margin: 0 0 6px; font-size: clamp(16px, 2.3vw, 22px); color: #e3faff; }
+    .summary-feedback { min-height: 2.5em; margin: 0 0 8px; color: #a5d3df; font-size: 14px; }
+    .summary-cards { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; max-width: 1020px; margin: 0 auto; }
+    .summary-cards:has(.summary-card:nth-child(2):last-child) { grid-template-columns: repeat(2,minmax(0,1fr)); max-width: 650px; }
+    .summary-card { min-width: 0; position: relative; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: #091922; color: #e9fbff; cursor: pointer; font: 600 14px system-ui, sans-serif; }
+    .summary-card img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; background: #04060d; }
+    .summary-card span { display: block; padding: 7px 5px; }
+    .summary-card .summary-visual { position: relative; padding: 0; }
+    .summary-card.selected { border-color: var(--acid); color: var(--acid); }
+    .summary-card.try-again { border-color: #ff718e; }
+    .summary-card:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+    .summary-mark { display: none; position: absolute; left: var(--focus-x); top: var(--focus-y); width: 31%; aspect-ratio: 1; transform: translate(-50%,-50%); border: 1px dashed #ffb971; border-radius: 50%; pointer-events: none; }
+    .summary-card.try-again .summary-mark { display: block; }
+    @media(max-width:680px) { .summary-cards { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; } #mito-summary { padding: 10px; } }
+    #inspect-list { position: fixed; left: 16px; top: 165px; z-index: 3; }
+    #inspect-list, #inspect button { color: #e6fbff; background: #071622f2; border: 1px solid var(--line); border-radius: 8px; padding: 11px 14px; font: inherit; cursor: pointer; }
+    #lesson-labels { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+    body:has(#inspect:not([hidden])) #lesson-labels { visibility: hidden; }
+    #lesson-labels button, #lesson-labels i { position: absolute; left: 0; top: 0; }
+    #lesson-labels button { pointer-events: auto; height: 36px; padding: 0 10px; white-space: nowrap; color: #e6fbff;
+      background: #071622ec; border: 1px solid var(--line); border-radius: 7px; cursor: pointer; font: 600 13px system-ui, sans-serif; }
+    #lesson-labels button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+    #lesson-labels .label-line { height: 1px; background: var(--cyan); opacity: .72; transform-origin: left center; }
+    #lesson-labels .label-dot { width: 5px; height: 5px; background: var(--cyan); border-radius: 50%; }
+    #inspect { position: fixed; z-index: 9; right: 16px; top: 28%; width: min(340px, calc(100vw - 60px)); padding: 22px; background: #06121cf5; border: 1px solid var(--cyan); border-radius: 4px 22px 4px 4px; box-shadow: 0 0 30px #00e5ff25, inset 3px 0 var(--cyan); backdrop-filter: blur(14px); animation: scan-in .25s ease-out; }
+    #inspect[hidden], #inspect-wire[hidden] { display: none; }
+    #inspect .close { float: right; padding: 5px 10px; }
+    #inspect .scan-code { font-size: 10px; color: #86bcc7; letter-spacing: .08em; padding-right: 35px; }
+    #inspect h2 { color: var(--cyan); font-size: 21px; margin: 18px 0 10px; }
+    #inspect p, #inspect .role { line-height: 1.55; margin: 12px 0; }
+    #inspect .role { border-top: 1px solid var(--line); padding-top: 12px; }
+    #inspect .inspect-actions { display: flex; gap: 8px; margin-top: 12px; }
+    #inspect .inspect-actions[hidden] { display: none; }
+    #inspect .inspect-actions button { flex: 1; }
+    #inspect .zoom { color: var(--cyan); }
+    #inspect .more { color: #ffda8b; border-color: #8b6d3d; border-radius: 3px 12px 3px 3px; background: linear-gradient(130deg, #352714, #181713); }
+    #inspect .more span { margin-left: .35em; }
+    #inspect .more:hover, #inspect .more:focus-visible { border-color: #ffda8b; box-shadow: inset 0 -2px #d69e4b; }
+    #inspect .choices { display: grid; gap: 7px; max-height: 40vh; overflow: auto; }
+    #inspect-wire { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; fill: none; stroke: var(--cyan); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    #inspect-wire .rails { stroke-width: 3; }
+    #inspect-wire circle { fill: #00e5ff33; stroke-width: 2; }
+    #bottom[inert] { opacity: .18; }
+    @keyframes scan-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+    @media(max-width:600px) { #inspect { top: auto; bottom: 14px; left: 12px; right: 12px; width: auto; padding: 17px; max-height: 52vh; overflow: auto; } #inspect h2 { font-size: 19px; } #inspect-list { font-size: 12px; padding: 8px 10px; } }
+    #inspect.callout {
+      animation: callout-open 280ms 160ms both;
+      border-radius: 4px;
+      border-block: 3px solid var(--cyan);
+      box-shadow: 0 0 24px #00e5ff30;
+      background: #06121ce6;
+      max-height: 52vh;
+      overflow: auto;
+    }
+    #inspect.callout > * { animation: callout-text 90ms 390ms both; }
+    @keyframes callout-open {
+      0% { visibility: hidden; clip-path: inset(50% 0); }
+      20% { visibility: visible; clip-path: inset(calc(50% - 7px) 0); }
+      100% { visibility: visible; clip-path: inset(0); }
+    }
+    @keyframes callout-text {
+      from { visibility: hidden; opacity: 0; }
+      to { visibility: visible; opacity: 1; }
+    }
+    @media(prefers-reduced-motion:reduce) { #inspect, #inspect.callout, #inspect.callout > * { animation: none; } }
   </style>
   <!-- Метка ?v= у своих модулей: после обновления сайта браузер берёт новые файлы, а не старые из кэша.
        Номер меняется командой node tools/version.mjs <версия>. Новый модуль урока — добавить сюда. -->
@@ -68,10 +164,22 @@
     { "imports": {
       "three": "./lib/three.module.js",
       "three/addons/": "./lib/addons/",
+      "./mitoinfo.js": "./mitoinfo.js?v=0.26",
+      "./mitopore.js": "./mitopore.js?v=0.26",
       "./mitosis.js": "./mitosis.js?v=0.26",
+      "./mitoinput.js": "./mitoinput.js?v=0.26",
       "./mitosis-data.js": "./mitosis-data.js?v=0.26",
       "./mitosis-demo.js": "./mitosis-demo.js?v=0.26",
       "./mitosis-stages.js": "./mitosis-stages.js?v=0.26",
+      "./mitotelophase.js": "./mitotelophase.js?v=0.26",
+      "./mitocytokinesis.js": "./mitocytokinesis.js?v=0.26",
+      "./mitocyto-olymp.js": "./mitocyto-olymp.js?v=0.26",
+      "./mitocyto-geometry.js": "./mitocyto-geometry.js?v=0.26",
+      "./mitoplantdivision.js": "./mitoplantdivision.js?v=0.26",
+      "./mitophragmoplast.js": "./mitophragmoplast.js?v=0.26",
+      "./mitosummary.js": "./mitosummary.js?v=0.26",
+      "./mitoenvelope.js": "./mitoenvelope.js?v=0.26",
+      "./mitoenvdetail.js": "./mitoenvdetail.js?v=0.26",
       "./mitoanaphase.js": "./mitoanaphase.js?v=0.26",
       "./mitocohesin.js": "./mitocohesin.js?v=0.26",
       "./mitocell.js": "./mitocell.js?v=0.26",
@@ -88,12 +196,78 @@
 </head>
 <body>
   <div id="loading">Загрузка…</div>
-  <div id="hud"><div id="rail"></div><div id="hudText"></div></div>
+  <div id="hud"><div id="rail"></div><div id="hudText"></div><div id="label"></div></div>
   <div id="wm">© 2026 Гинько Е.Д. · Все права защищены</div>
+  <section id="mito-summary" aria-labelledby="summary-prompt" hidden>
+    <h2 id="summary-prompt" class="summary-prompt"></h2>
+    <p class="summary-feedback" role="status"></p>
+    <div class="summary-cards"></div>
+  </section>
   <div id="bottom">
-    <div id="label"></div>
+    <div id="question" hidden></div>
     <div id="buttons"></div>
   </div>
+  <button id="inspect-list" type="button">Что на экране?</button>
+  <div id="lesson-labels" hidden></div>
+  <svg id="inspect-wire" hidden aria-hidden="true"><path pathLength="1"/><path class="rails"/><circle r="4"/></svg>
+  <section id="inspect" hidden role="dialog" aria-labelledby="inspect-title">
+    <button class="close" type="button" aria-label="Закрыть описание">✕</button>
+    <div class="scan-code">Биосканер · действие на паузе</div>
+    <h2 id="inspect-title"></h2><p class="what"></p>
+    <div class="role"></div><div class="choices"></div>
+    <div class="inspect-actions" hidden>
+      <button class="zoom" type="button">Рассмотреть</button>
+      <button class="more" type="button" hidden>Подробнее <span aria-hidden="true">↗</span></button>
+    </div>
+  </section>
+  <dialog id="pore-reader" aria-labelledby="pore-reader-title">
+    <header class="pore-toolbar"><div class="pore-toolbar-inner">
+      <button type="button" id="pore-reader-back">← К сцене</button>
+      <span class="pore-brand">BIOTECH</span>
+      <span class="pore-status">Сцена на паузе</span>
+    </div></header>
+    <article class="pore-reader-body">
+      <p class="pore-context">Митоз / Телофаза</p>
+      <h1 id="pore-reader-title">Ядерная пора</h1>
+      <p class="pore-lede">Белковый комплекс для обмена веществами между ядром и цитоплазмой.</p>
+      <div class="pore-layout">
+        <figure>
+          <div class="pore-instrument" aria-hidden="true">Ядерная оболочка в разрезе</div>
+          <div class="pore-display">
+            <canvas id="pore-figure" width="1440" height="900" role="img" aria-label="Разрез ядерной поры. Цитоплазма сверху, ядро снизу. Две мембраны соединяются вокруг канала, а кольца белков удерживают его края. Стрелки показывают обмен в обе стороны."></canvas>
+            <canvas id="pore-figure-route" width="1440" height="900" aria-hidden="true"></canvas>
+          </div>
+          <figcaption>
+            <span>Учебная схема, без масштаба</span>
+            <ol class="pore-legend">
+              <li><b>1</b> Наружная мембрана</li>
+              <li><b>2</b> Внутренняя мембрана</li>
+              <li><b>3</b> Белковые кольца</li>
+              <li><b>4</b> Транспортный канал</li>
+            </ol>
+          </figcaption>
+          <div class="pore-routes" role="group" aria-label="Маршрут через ядерную пору">
+            <button type="button" data-pore-route="protein" aria-pressed="true"><span aria-hidden="true">↓</span> Белок входит</button>
+            <button type="button" data-pore-route="rna" aria-pressed="false"><span aria-hidden="true">↑</span> мРНК выходит</button>
+          </div>
+        </figure>
+        <div class="pore-explainer">
+          <h2>Как устроена</h2>
+          <p>Две мембраны ядерной оболочки соединяются по краю отверстия. Белковые кольца образуют каркас, внутри которого проходит канал.</p>
+          <section class="pore-route-readout" aria-live="polite" aria-atomic="true">
+            <h2 id="pore-route-title"></h2>
+            <p id="pore-route-text"></p>
+          </section>
+          <details id="pore-reader-olymp" hidden>
+            <summary>Как поры собираются в телофазе</summary>
+            <p>Пока мембрана охватывает хромосомы, на уже покрытых участках собирается каркас поры. Сначала образуется центральная часть комплекса. Часть белков с ядерной и цитоплазматической сторон присоединяется позже.</p>
+            <p><a href="https://www.nature.com/articles/s41586-022-05528-w" target="_blank" rel="noopener noreferrer">Исследование сборки пор</a></p>
+          </details>
+          <p class="pore-sources"><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9867570/" target="_blank" rel="noopener noreferrer">Исследование строения поры</a></p>
+        </div>
+      </div>
+    </article>
+  </dialog>
   <div id="fade"></div>
   <a id="back" href="index.html">← Меню</a>
   <button id="glow" type="button">✦</button>

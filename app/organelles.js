@@ -52,7 +52,8 @@ export const PARTS = {
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const cache = {};
 const VER = new URL(import.meta.url).search;   // «?v=…» из адреса модуля — чтобы и модели не брались из старого кэша
-export const loadModel = name => (cache[name] ||= loader.loadAsync('models/' + name + '.glb' + VER).then(g => g.scene));
+export const loadModel = name => (cache[name] ||= loader.loadAsync('models/' + name + '.glb' + VER)
+  .then(g => g.scene, e => { delete cache[name]; throw e; }));   // неудачу не запоминаем: со второго раза загрузится
 
 // Перекрашивает модель в био-неон. Материалы одинаковых частей общие —
 // так копии органоида (например, пять митохондрий) рисуются дешевле.
