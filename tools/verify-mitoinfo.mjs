@@ -31,12 +31,18 @@ assert(entries.filter(o=>o.isSprite).length>=6);molecular.group.visible=false;as
 const labels = id => entries.find(o => o.isSprite && o.userData.info === id);
 function onSurface(source, meshes) {
   const anchor = infoWorldPoint(source);
-  const vertex = new THREE.Vector3();
+  const vertex = new THREE.Vector3(), instance = new THREE.Matrix4();
   return meshes.some(mesh => {
+    mesh.updateWorldMatrix(true, false);
     const positions = mesh.geometry.getAttribute('position');
-    for (let i = 0; i < positions.count; i++) {
-      mesh.localToWorld(vertex.fromBufferAttribute(positions, i));
-      if (anchor.distanceToSquared(vertex) < 1e-12) return true;
+    for (let n = 0; n < (mesh.isInstancedMesh ? mesh.count : 1); n++) {
+      if(mesh.isInstancedMesh){mesh.getMatrixAt(n,instance);if(instance.getMaxScaleOnAxis()===0)continue;}
+      else instance.identity();
+      const matrix=new THREE.Matrix4().multiplyMatrices(mesh.matrixWorld,instance);
+      for (let i = 0; i < positions.count; i++) {
+        vertex.fromBufferAttribute(positions, i).applyMatrix4(matrix);
+        if (anchor.distanceToSquared(vertex) < 1e-12) return true;
+      }
     }
     return false;
   });
@@ -55,7 +61,34 @@ molecular.cut();
 molecular.update(7);
 verifyAnchors();
 assert(infoWorldPoint(labels('chromatin')).distanceTo(before) > .3);
-const kt=await createKinetochore();kt.finish();infoScene.add(kt.group);
-const ids=new Set(infoObjects(infoScene).map(o=>o.userData.info));for(const id of ['ndc80','mis12','ccan','cenpa','microtubule'])assert(ids.has(id),id);
+for(const olymp of [false,true]){
+  const kt=await createKinetochore({olymp});infoScene.add(kt.group);
+  function verifyKinetochoreLabels(expected){
+    const objects=infoObjects(kt.group);
+    const sprites=objects.filter(o=>o.isSprite);
+    assert.deepEqual(sprites.map(o=>o.userData.info).sort(),[...expected].sort());
+    for(const sp of sprites){
+      const id=sp.userData.info==='kinetochore'?'ccan':sp.userData.info;
+      assert(onSurface(sp,objects.filter(o=>o.isInstancedMesh&&o.userData.info===id)),id+' — точка карточки на молекуле');
+      const line=sp.parent.children[sp.parent.children.indexOf(sp)+1];
+      const points=line.geometry.getAttribute('position');
+      const endpoint=line.localToWorld(new THREE.Vector3().fromBufferAttribute(points,points.count-1));
+      assert(infoWorldPoint(sp).distanceTo(endpoint)<1e-6,id+' — линии карточки и подписи имеют одну точку');
+    }
+  }
+  kt.finish();kt.update(0);
+  const attached=['microtubule','ndc80','mis12','ccan','cenpa'];
+  verifyKinetochoreLabels(attached);
+  kt.group.position.set(1.2,-.7,.28);kt.group.rotation.set(.4,-.8,.2);kt.group.scale.multiplyScalar(1.12);
+  verifyKinetochoreLabels(attached);
+  kt.showOverview(true);
+  verifyKinetochoreLabels(['kinetochore']);
+  kt.showOverview(false);
+  kt.play();kt.update(1.5);verifyKinetochoreLabels(olymp?['mad12','mcc']:[]);
+  kt.update(1.9);verifyKinetochoreLabels(olymp?['mad12','mcc']:[]);
+  kt.finish();kt.update(0);verifyKinetochoreLabels(attached);
+  assert(!infoObjects(kt.group).some(o=>['mad12','mcc'].includes(o.userData.info)));
+  kt.group.removeFromParent();kt.dispose();
+}
 for(const data of Object.values(INFO))assert.equal(data.length,3);
-molecular.dispose();kt.dispose();console.log('PASS: molecular tags, clickable labels, hidden objects, surface anchors, answer rotation');
+molecular.dispose();console.log('PASS: molecular tags, clickable labels, hidden objects, surface anchors, answer rotation');
