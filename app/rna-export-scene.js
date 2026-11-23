@@ -15,31 +15,41 @@ export function exportPose(time) {
 }
 
 function membrane(x, color) {
-  const outline = new THREE.Shape();
-  outline.moveTo(-1.95, -2.15);
-  outline.lineTo(1.75, -2.15);
-  outline.lineTo(1.75, 2.15);
-  outline.lineTo(-1.95, 2.15);
-  outline.closePath();
-  const aperture = new THREE.Path();
-  aperture.absarc(0, 0, 0.77, 0, 2 * Math.PI, true);
-  outline.holes.push(aperture);
-
-  const surface = new THREE.Mesh(
-    new THREE.ExtrudeGeometry(outline, { depth: 0.12, curveSegments: 22, bevelEnabled: false }),
-    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.42, depthWrite: false, side: THREE.DoubleSide }),
-  );
-  surface.position.x = x - 0.06;
-  surface.rotation.y = Math.PI / 2;
-  surface.add(new THREE.LineSegments(new THREE.EdgesGeometry(surface.geometry),
-    new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.63 })));
+  const radius = 3.65 + x;
+  const opening = Math.asin(0.78 / radius);
+  const points = [], indices = [];
+  const sections = 32, arcs = 42;
+  for (let row = 0; row <= sections; row++) {
+    const u = row / sections;
+    const theta = THREE.MathUtils.lerp(opening, Math.PI, u);
+    const cut = 0.95 * Math.sin(Math.PI * u) ** 0.6;
+    for (let column = 0; column <= arcs; column++) {
+      const phi = THREE.MathUtils.lerp(Math.PI - cut, 2 * Math.PI + cut, column / arcs);
+      points.push(-3.65 + radius * Math.cos(theta),
+        radius * Math.sin(theta) * Math.cos(phi), radius * Math.sin(theta) * Math.sin(phi));
+      if (row && column) {
+        const a = row * (arcs + 1) + column;
+        indices.push(a, a - 1, a - arcs - 2, a, a - arcs - 2, a - arcs - 1);
+      }
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  const surface = new THREE.Mesh(geometry, neon(color, { glass: true, body: 0.15, glow: 0.72, strength: 0.35 }));
+  surface.material.side = THREE.DoubleSide;
+  const edge = new THREE.Mesh(new THREE.TorusGeometry(0.78, 0.047, 8, 40), neon(color, { body: 0.58, glow: 1.2 }));
+  edge.rotation.y = Math.PI / 2;
+  edge.position.x = -3.65 + radius * Math.cos(opening);
+  surface.add(edge);
   surface.userData.object = 'membrane';
   return surface;
 }
 
 export function createRnaExportScene(loadAsset) {
   const group = new THREE.Group();
-  const membranes = [membrane(-0.36, 0x4fa9ce), membrane(0.36, 0x6889c9)];
+  const membranes = [membrane(-0.31, 0x8373d8), membrane(0.31, 0x55bedb)];
   group.add(...membranes);
 
   const porePaint = neon(0x309c96, { body: 0.73, glow: 1.35 });
@@ -70,6 +80,28 @@ export function createRnaExportScene(loadAsset) {
   passage.rotation.z = Math.PI / 2;
   passage.userData.object = 'pore';
   group.add(passage);
+  const targets = [passage, ...rings, ...membranes];
+  loadAsset('nuclear_pore_specimen').then(source => {
+    const model = source.clone(true);
+    const bounds = new THREE.Box3().setFromObject(model);
+    const size = bounds.getSize(new THREE.Vector3());
+    model.position.sub(bounds.getCenter(new THREE.Vector3()));
+    const scaffold = new THREE.Group();
+    scaffold.add(model);
+    scaffold.rotation.z = Math.PI / 2;
+    scaffold.scale.setScalar(2.42 / Math.max(size.x, size.z));
+    const inner = neon(0x55cbb1, { body: 0.64, glow: 1.35 });
+    const outer = neon(0x80aee9, { body: 0.64, glow: 1.28 });
+    targets.splice(1, rings.length);
+    model.traverse(mesh => {
+      if (!mesh.isMesh) return;
+      mesh.material = mesh.name.includes('Inner-ring') ? inner : outer;
+      mesh.userData.object = 'pore';
+      targets.push(mesh);
+    });
+    group.add(scaffold);
+    rings.forEach(ring => { ring.visible = false; });
+  }).catch(error => console.warn('7R5J:', error));
 
   const factor = new THREE.Group();
   const fallback = new THREE.Mesh(new THREE.IcosahedronGeometry(0.24, 2), neon(0xf8c679, { body: 0.78 }));
@@ -129,5 +161,5 @@ export function createRnaExportScene(loadAsset) {
     }
   }
 
-  return { group, anchors, update, targets: [passage, ...rings, ...membranes] };
+  return { group, anchors, update, targets };
 }

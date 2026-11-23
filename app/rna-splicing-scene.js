@@ -32,7 +32,7 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
   dust.position.z = -3.8;
   dust.material.opacity = 0.46;
   space.add(dust);
-  const environment = selectObject ? createRnaEnvironment() : null;
+  const environment = selectObject ? createRnaEnvironment(loadModel) : null;
   if (environment) space.add(environment.group);
 
   const ribbon = new THREE.Group();
@@ -268,12 +268,15 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
     exportView.group.visible = true;
     ribbon.scale.setScalar(RNA_EXPORT_SCALE);
     ribbon.rotation.y = Math.PI;
+    if (!exportFocus) {
+      for (const bead of beads) bead.scale.multiplyScalar(1.38);
+    }
     exportView.update(time, ribbon, ends.cap);
     if (exportFocus === focus) return;
     exportFocus = focus;
-    viewSize = focus === 'find' ? 15.8 : 13.4;
-    viewHeight = focus === 'find' ? 6.7 : 5.1;
-    viewCenter = vector(focus === 'find' ? -0.55 : 0, 0.11, 0);
+    viewSize = focus === 'find' ? 16.4 : 14.8;
+    viewHeight = focus === 'find' ? 8 : 7.05;
+    viewCenter = vector(focus === 'find' ? -0.55 : -0.24, 0.11, 0);
     fit(!matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
 

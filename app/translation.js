@@ -152,7 +152,7 @@ function updateMarkers() {
       marker.hidden = true;
       continue;
     }
-    const offsets = { pore: 18, factor: -27, ddx19: -30 };
+    const offsets = { nucleus: -24, cytoplasm: -24, pore: 18, factor: -27, ddx19: -30 };
     placeMarker(marker, point, offsets[point] ?? 0);
   }
 }
