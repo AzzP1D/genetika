@@ -5,6 +5,7 @@
   --line: #00e5ff55;
   --cyan: #75f0ff;
   --acid: #b4ff8a;
+  --panel-inset: max(10px, env(safe-area-inset-left)) max(10px, env(safe-area-inset-right));
 }
 
 * { box-sizing: border-box; }
@@ -14,28 +15,31 @@ body {
   margin: 0;
   height: 100dvh;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(120px, 1fr) auto;
   padding-block: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-bottom));
 }
 
-header, footer {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px 12px;
+.panel {
   z-index: 1;
-  margin-inline: max(10px, env(safe-area-inset-left)) max(10px, env(safe-area-inset-right));
+  margin-inline: var(--panel-inset);
   padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--panel);
   box-shadow: 0 0 18px #00e5ff16, inset 0 0 14px #00e5ff0c;
 }
+header, footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+}
+.lesson-panels { display: grid; gap: 8px; }
 h1, h2, p { margin: 0; }
 h1 { color: var(--cyan); font-size: 14px; letter-spacing: .14em; text-transform: uppercase; }
-header p { margin-top: 3px; font-size: clamp(16px, 4vw, 20px); }
 h2 { font-size: clamp(16px, 4vw, 20px); line-height: 1.16; }
-footer p { margin-top: 4px; color: #bedce6; }
+.lesson-panels p { margin-top: 4px; max-width: 84ch; color: #bedce6; }
+#scene-title { color: var(--cyan); }
 
 button, header a {
   display: inline-flex;
@@ -70,7 +74,7 @@ canvas { display: block; touch-action: none; }
 
 #details, #parts { grid-column: 1 / -1; }
 #details { max-height: min(17dvh, 7rem); overflow: auto; scrollbar-color: #457486 #0c2231; }
-#detail-copy { max-width: 84ch; margin: 0; }
+#detail-copy { margin: 0; }
 #parts { display: flex; flex-wrap: wrap; gap: 6px; }
 #parts button[data-part] { border-bottom: 2px solid var(--part-color); }
 [data-part=cap] { --part-color: #95e8ae; }
@@ -80,13 +84,27 @@ canvas { display: block; touch-action: none; }
 [data-part=tail] { --part-color: #64cbdc; }
 
 @media (max-width: 520px) {
-  header, footer { padding: 10px; }
-  footer p, button, header a { font-size: 13px; }
+  .panel { padding: 10px; }
+  .lesson-panels p { font-size: 14px; }
+  button, header a { font-size: 13px; }
   #parts button { flex: 1 0 auto; padding-inline: 6px; }
 }
 
 @media (max-height: 420px) {
-  header, footer { padding-block: 7px; }
+  .panel { padding-block: 7px; }
+  .lesson-panels { gap: 6px; }
   header a, footer button { min-height: 36px; }
-  #note { font-size: 13px; }
+  .lesson-panels p { font-size: 14px; }
+}
+
+@media (max-height: 420px) and (min-width: 560px) {
+  body { grid-template-rows: auto minmax(100px, 1fr) auto; }
+  .lesson-panels {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    align-items: end;
+    margin-inline: var(--panel-inset);
+  }
+  .lesson-panels .panel { margin-inline: 0; padding-inline: 10px; }
+  footer { row-gap: 6px; }
+  #parts button { padding-inline: 6px; }
 }

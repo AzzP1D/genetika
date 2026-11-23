@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Трансляция · Генетика</title>
-  <link rel="stylesheet" href="translation.css?v=0.27.1">
+  <link rel="stylesheet" href="translation.css?v=0.27.4">
   <script type="importmap">
     { "imports": {
       "three": "./lib/three.module.js",
@@ -18,11 +18,11 @@
       "./rna-end-models.js": "./rna-end-models.js?v=0.27.1"
     } }
   </script>
-  <script type="module" src="translation.js?v=0.27.2"></script>
+  <script type="module" src="translation.js?v=0.27.3"></script>
 </head>
 <body>
-  <header>
-    <div><h1>Трансляция</h1><p>Зрелая мРНК в ядре</p></div>
+  <header class="panel">
+    <h1>Трансляция</h1>
     <a id="back" href="rna-splicing.html?frame=mature">← Сплайсинг</a>
   </header>
 
@@ -35,22 +35,29 @@
     <p id="model-unavailable" hidden>3D-модель недоступна. Выбери участок мРНК по кнопкам ниже.</p>
   </main>
 
-  <footer aria-label="Задание и пояснение">
-    <div id="note-area" aria-live="polite">
-      <h2 id="note-title">Рассмотри зрелую мРНК</h2>
-      <p id="note">Поверни молекулу или выбери участок. Найди кэп, три соединённых экзона и поли(А)-хвост.</p>
-    </div>
-    <button id="details-toggle" type="button" aria-controls="details" aria-expanded="false">Подробнее</button>
-    <div id="details" tabindex="0" hidden>
-      <p id="detail-copy">Это та же молекула из финала сплайсинга. Два интрона удалены, а три экзона соединены. Кэп и поли(А)-хвост остались на концах. мРНК ещё в ядре. Для синтеза полипептида ей предстоит попасть в цитоплазму, где работают рибосомы.</p>
-    </div>
-    <div id="parts" role="group" aria-label="Участки зрелой мРНК">
-      <button type="button" data-part="cap" aria-pressed="false">Кэп · 5′</button>
-      <button type="button" data-part="e1" aria-pressed="false">Экзон 1</button>
-      <button type="button" data-part="e2" aria-pressed="false">Экзон 2</button>
-      <button type="button" data-part="e3" aria-pressed="false">Экзон 3</button>
-      <button type="button" data-part="tail" aria-pressed="false">Поли(А) · 3′</button>
-    </div>
-  </footer>
+  <div class="lesson-panels">
+    <section class="panel" id="scene-summary" aria-labelledby="scene-title">
+      <h2 id="scene-title">Зрелая мРНК в ядре</h2>
+      <p>При сплайсинге два интрона удалились, а три экзона соединились в одну цепь. На её концах видны кэп (5′) и поли(А)-хвост (3′).</p>
+    </section>
+
+    <footer class="panel" aria-label="Задание и пояснение">
+      <div id="note-area" aria-live="polite">
+        <h2 id="note-title">Рассмотри части мРНК</h2>
+        <p id="note">Поверни модель и нажми на участок, чтобы узнать о нём больше.</p>
+      </div>
+      <button id="details-toggle" type="button" aria-controls="details" aria-expanded="false">Подробнее</button>
+      <div id="details" tabindex="0" hidden>
+        <p id="detail-copy">Бирюзовые перемычки показывают два стыка, где соединились соседние экзоны. Число экзонов зависит от гена. Здесь мы рассматриваем ту же цепь из трёх экзонов, которую получили в финале сплайсинга.</p>
+      </div>
+      <div id="parts" role="group" aria-label="Участки зрелой мРНК">
+        <button type="button" data-part="cap" aria-pressed="false">Кэп · 5′</button>
+        <button type="button" data-part="e1" aria-pressed="false">Экзон 1</button>
+        <button type="button" data-part="e2" aria-pressed="false">Экзон 2</button>
+        <button type="button" data-part="e3" aria-pressed="false">Экзон 3</button>
+        <button type="button" data-part="tail" aria-pressed="false">Поли(А) · 3′</button>
+      </div>
+    </footer>
+  </div>
 </body>
 </html>
