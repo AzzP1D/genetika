@@ -146,6 +146,7 @@ export function createRnaExportScene(loadAsset) {
     rna.position.x = rnaX;
     const capPosition = cap.getWorldPosition(new THREE.Vector3());
     factor.position.copy(capPosition).add(new THREE.Vector3(-0.35 - 1.2 * release, 0.29 + 0.75 * release, 0.07));
+    factor.visible = true;
     factor.rotation.set(0.13, 0.38 + release * 1.2, release * 0.58);
     enzyme.visible = time >= EXPORT_FRAMES[3];
     if (enzyme.visible && !enzymeRequested) {
@@ -161,5 +162,9 @@ export function createRnaExportScene(loadAsset) {
     }
   }
 
-  return { group, anchors, update, targets };
+  function hideExportProteins() {
+    factor.visible = enzyme.visible = false;
+  }
+
+  return { group, anchors, update, targets, hideExportProteins };
 }

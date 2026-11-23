@@ -69,12 +69,12 @@ button[aria-pressed=true] {
 
 #stage { position: relative; min-height: 0; overflow: hidden; }
 canvas { display: block; touch-action: none; }
-#markers, #export-markers, #specimen-markers { position: absolute; inset: 0; pointer-events: none; }
+#markers, #export-markers, #initiation-markers, #specimen-markers { position: absolute; inset: 0; pointer-events: none; }
 .end, #selection { position: absolute; transform: translate(-50%, -50%); }
 .end { min-height: 30px; pointer-events: auto; padding-inline: 7px; color: var(--cyan); }
 .end[data-end=cap] { color: #b1efba; }
 #selection { width: 24px; height: 24px; border: 1px solid var(--acid); border-radius: 50%; box-shadow: 0 0 12px #aaff7b66; }
-#export-markers [data-point] {
+:is(#export-markers, #initiation-markers) [data-point] {
   position: absolute;
   transform: translate(-50%, -50%);
   padding: 4px 7px;
@@ -86,10 +86,266 @@ canvas { display: block; touch-action: none; }
   white-space: nowrap;
   font: 600 13px/1.2 system-ui, sans-serif;
 }
-#export-markers button:not(:disabled) { pointer-events: auto; }
-#export-markers button:disabled { cursor: default; }
-#export-markers .guide { color: var(--acid); border-color: #81d66d; }
-#export-markers .specimen-marker { display: flex; min-height: 34px; gap: 3px; padding: 0 2px 0 0; }
+:is(#export-markers, #initiation-markers) button:not(:disabled) { pointer-events: auto; }
+:is(#export-markers, #initiation-markers) button:disabled { cursor: default; }
+:is(#export-markers, #initiation-markers) .guide { color: var(--acid); border-color: #81d66d; }
+:is(#export-markers, #initiation-markers) .specimen-marker { display: flex; min-height: 34px; gap: 3px; padding: 0 2px 0 0; }
+#initiation-markers .specimen-marker span { align-self: center; padding-inline: 6px; }
+#initiation-markers button[data-point] { min-height: 36px; }
+#initiation-markers .residue-marker { color: var(--residue); border-color: var(--residue); min-height: 24px; }
+#initiation-markers [data-point]::after {
+  content: '';
+  position: absolute;
+  left: calc(50% + var(--lead-x, 0px));
+  top: calc(50% + var(--lead-y, 0px));
+  width: var(--lead-length, 0px);
+  height: 1px;
+  transform-origin: left center;
+  transform: rotate(var(--lead-angle, 0rad));
+  background: currentColor;
+  opacity: .8;
+  pointer-events: none;
+}
+#initiation-status {
+  position: absolute; inset: 12px 12px auto; width: fit-content; max-width: calc(100% - 24px);
+  margin-inline: auto; padding: 5px 9px; background: var(--panel); border-radius: 8px;
+}
+#reading-guide {
+  position: absolute;
+  inset: 8px 8px auto;
+  width: fit-content;
+  max-width: calc(100% - 16px);
+  margin-inline: auto;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #071926f2;
+  text-align: center;
+  font-size: 13px;
+}
+#site-rail { display: flex; align-items: center; justify-content: center; gap: 5px; color: #bedce6; }
+#site-rail button {
+  min-height: 35px;
+  min-width: 57px;
+  gap: 5px;
+  padding: 4px 5px;
+  border-radius: 7px;
+  background: #102633;
+}
+#site-rail [data-focus=A] strong { color: var(--acid); }
+#site-rail [data-focus=P] strong { color: #81dffb; }
+#site-rail [data-focus=E] strong { color: #ffbda9; }
+#site-rail .active-codon > span { text-decoration: underline; text-underline-offset: 3px; }
+#site-explanation { max-width: 34ch; margin: 4px auto 0; color: #d2e9ee; }
+#pairing { display: grid; width: max-content; grid-template-columns: auto auto auto; align-items: center; gap: 3px 8px; margin: 5px auto 0; }
+.pair-bases { display: flex; gap: 4px; }
+.pair-bases b { width: 23px; background: #153242; border-radius: 4px; }
+.pair-bases .match { color: var(--acid); }
+.pair-bases .mismatch { color: #ffc5ab; text-decoration: underline; }
+#peptide-order { display: flex; justify-content: center; flex-wrap: wrap; gap: 2px; margin-top: 4px; font-weight: 650; }
+#peptide-order span + span::before { content: '–'; padding-inline: 2px; color: #bedce6; }
+#site-rail #open-codon-inspector {
+  position: relative;
+  min-width: 35px;
+  padding: 0;
+  color: var(--cyan);
+}
+#codon-inspector {
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: max(10px, env(safe-area-inset-top)) 0 max(10px, env(safe-area-inset-bottom));
+  border: 0;
+  color: #e6fbff;
+  background: radial-gradient(ellipse at 50% 42%, #11303d, var(--ink) 68%);
+}
+#codon-inspector[open] { display: grid; grid-template-rows: auto 1fr auto; gap: 10px; }
+#codon-inspector h2 { color: var(--cyan); }
+#codon-inspector header button { white-space: nowrap; }
+.codon-diagram { align-self: center; width: min(calc(100% - 20px), 730px); margin: 10px auto; text-align: center; }
+.schematic-sequence p { color: #bedce6; font-size: 13px; }
+#schematic-track {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: center;
+  list-style: none;
+  margin: 6px 0 16px;
+  padding: 0;
+}
+#schematic-track li {
+  padding: 3px 6px;
+  border: 1px solid #f8b4d456;
+  border-radius: 7px;
+  color: #f8b4d4;
+  background: #23192b;
+  font-weight: 650;
+}
+#schematic-track .signal { border-color: #edc684aa; }
+#schematic-track [aria-current=step] { outline: 2px solid var(--acid); color: #fdf2fa; }
+.schematic-dock { display: flex; justify-content: center; gap: clamp(8px, 4vw, 48px); }
+.schematic-lane { position: relative; width: min(48%, 255px); min-width: 0; }
+.schematic-trna { display: grid; justify-items: center; color: var(--acid); }
+.schematic-trna.unoccupied { visibility: hidden; }
+.schematic-lane[data-result=miss] .schematic-trna { transform: translateY(-16px); }
+.schematic-cargo, #schematic-release {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: center;
+  gap: 2px;
+  min-height: 48px;
+}
+.schematic-cargo { position: relative; width: 100%; }
+.schematic-cargo:not(:empty)::after {
+  content: '';
+  position: absolute;
+  top: calc(50% + 10px);
+  left: calc(50% + 2px);
+  width: 20px;
+  height: 1px;
+  transform: rotate(35deg);
+  transform-origin: left center;
+  background: #e9c985;
+}
+:is(.schematic-cargo, #schematic-release) span {
+  position: relative;
+  padding: 1px 4px;
+  border: 1px solid var(--cargo-color);
+  border-radius: 6px;
+  color: var(--cargo-color);
+  background: #17232b;
+  font-size: 12px;
+  font-weight: 650;
+}
+:is(.schematic-cargo, #schematic-release) span + span::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -3px;
+  width: 3px;
+  border-top: 1px solid #bca88e;
+}
+#schematic-release { margin: 8px 0; }
+.clover {
+  --strand: #92d9a5;
+  position: relative;
+  width: min(100%, 120px);
+  height: 102px;
+  margin-bottom: -3px;
+  color: var(--strand);
+  font: 650 12px/1 system-ui, sans-serif;
+}
+.clover > :is(div, button) { position: absolute; }
+.clover button { min-height: 0; padding: 0 3px; font: inherit; }
+.clover-acceptor {
+  inset: 4px auto auto 50%;
+  width: 21px;
+  height: 41px;
+  transform: translateX(-50%);
+  border-inline: 2px solid var(--strand);
+  background: repeating-linear-gradient(transparent 0 7px, #92d9a570 7px 8px);
+}
+.clover-acceptor button { position: absolute; top: -5px; min-height: 23px; white-space: nowrap; border-radius: 5px; }
+.clover-acceptor button:first-child { right: calc(100% + 4px); color: var(--strand); }
+.clover-acceptor button:last-child { left: calc(100% + 4px); color: #ffe2a0; }
+.clover-d, .clover-t {
+  top: 38px;
+  display: grid;
+  place-items: center;
+  width: 41%;
+  height: 31px;
+  border: 2px solid currentColor;
+  background: #0e2631;
+}
+.clover-d { left: 3%; color: #77d9ff; border-radius: 24px 6px 6px 24px; }
+.clover-t { right: 3%; color: #c6adff; border-radius: 6px 24px 24px 6px; }
+.clover-t::after {
+  content: '';
+  position: absolute;
+  left: -7px;
+  bottom: -9px;
+  width: 12px;
+  height: 10px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  background: #0e2631;
+}
+.clover-anticodon {
+  inset: auto auto 0 50%;
+  width: 47px;
+  height: 42px;
+  transform: translateX(-50%);
+  border-inline: 2px solid var(--strand);
+  border-bottom: 2px solid var(--strand);
+  border-radius: 0 0 22px 22px;
+}
+.schematic-stop {
+  position: absolute;
+  inset: auto 3px 104px;
+  padding: 6px;
+  border: 1px solid #e8ad80;
+  border-radius: 9px;
+  color: #ffceac;
+  background: #382819;
+}
+.schematic-row {
+  display: grid;
+  grid-template-columns: 16px max-content 16px;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+  color: #f8b4d4;
+  font-size: 12px;
+}
+.schematic-trna .schematic-row { color: inherit; }
+.schematic-bases, .schematic-contacts {
+  display: grid;
+  grid-template-columns: repeat(3, clamp(27px, 7vw, 43px));
+  gap: 4px;
+}
+.schematic-bases b {
+  display: grid;
+  place-items: center;
+  height: 32px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  background: #162633;
+  font-size: 19px;
+}
+.schematic-contacts { height: 20px; justify-content: center; }
+.schematic-contacts i { width: 0; justify-self: center; align-self: center; height: 16px; border-left: 2px dashed #95db91; visibility: hidden; }
+.schematic-lane[data-result=fit] .schematic-contacts i,
+.schematic-lane[data-result=miss] .schematic-contacts i { visibility: visible; }
+.schematic-lane[data-result=miss] .schematic-contacts .mismatch { border-color: #f9a789; height: 6px; }
+.codon-diagram .schematic-bases .mismatch { color: #ffc5ab; background: #442b2b; text-decoration: underline; }
+.schematic-site { margin-top: 5px; color: #bedce6; font-size: 12px; }
+.codon-task { min-width: 0; }
+.codon-task h3 { margin: 0 0 4px; font-size: 16px; }
+#codon-options { display: flex; flex-wrap: wrap; gap: 6px; margin-block: 8px; }
+#codon-options button.primary { background: #a7f58c; border-color: #b4ff8a; color: #051811; }
+#codon-feedback { color: #bedce6; }
+#schematic-legend { color: #bedce6; }
+#schematic-legend summary { cursor: pointer; color: var(--cyan); }
+#schematic-legend dl { max-height: min(20dvh, 9rem); margin: 6px 0 0; overflow: auto; scrollbar-color: #457486 #0c2231; }
+#schematic-legend dt { color: #e6fbff; font-weight: 650; }
+#schematic-legend dd { margin: 2px 0 8px; }
+@media (max-width: 420px) and (max-height: 740px) {
+  #codon-inspector[open] { gap: 5px; }
+  .codon-diagram { margin-block: 7px; }
+  #schematic-track { margin-bottom: 7px; }
+  .schematic-cargo { min-height: 40px; }
+  .clover { height: 85px; }
+  .clover-acceptor { height: 33px; }
+  .clover-d, .clover-t { top: 31px; height: 28px; }
+  .clover-anticodon { height: 32px; }
+  .schematic-bases b { height: 30px; }
+  .schematic-contacts { height: 17px; }
+}
+#details, #specimen-copy { scrollbar-gutter: stable; }
 .specimen-marker button {
   min-height: 33px;
   padding: 4px 5px;
@@ -121,8 +377,8 @@ canvas { display: block; touch-action: none; }
 #details, #parts, #lesson-controls, #timeline-controls { grid-column: 1 / -1; }
 #details { max-height: min(17dvh, 7rem); overflow: auto; scrollbar-color: #457486 #0c2231; }
 #detail-copy { margin: 0; }
-#specimen-links { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
-#specimen-links button { min-height: 34px; }
+#specimen-links, .initiation-specimens { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+#specimen-links button, .initiation-specimens button { min-height: 34px; }
 #specimen-panel { min-width: 0; }
 #specimen-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 #specimen-title { color: var(--cyan); }
@@ -138,6 +394,7 @@ canvas { display: block; touch-action: none; }
 #specimen-source { color: var(--cyan); font-size: 13px; white-space: nowrap; }
 #parts { display: flex; flex-wrap: wrap; gap: 6px; }
 #lesson-controls { display: flex; flex-wrap: wrap; gap: 6px; }
+#lesson-controls .restart-lesson { flex: 0 0 auto; margin-inline-start: auto; }
 #lesson-controls button.primary { color: #051811; background: #a7f58c; border-color: #b4ff8a; }
 #lesson-controls button:disabled, #timeline-controls button:disabled { opacity: .44; cursor: default; }
 #timeline-controls { display: grid; grid-template-columns: minmax(0, auto) minmax(90px, 1fr); align-items: center; gap: 6px 10px; }
@@ -161,7 +418,7 @@ canvas { display: block; touch-action: none; }
   #lesson-controls button { flex: 1 0 auto; }
   #timeline-controls { grid-template-columns: 1fr; }
   #frame-navigation { justify-content: space-between; }
-  #export-markers [data-point] { font-size: 12px; }
+  :is(#export-markers, #initiation-markers) [data-point] { font-size: 12px; }
   #specimen-copy { font-size: 14px; }
 }
 

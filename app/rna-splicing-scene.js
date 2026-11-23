@@ -7,14 +7,16 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { loadModel } from './organelles.js';
 import { neon, motes } from './style.js';
 import { bindLessonInput } from './mitoinput.js';
-import { createRnaExportScene, RNA_EXPORT_SCALE } from './rna-export-scene.js';
+import { createRnaExportScene, exportPose, EXPORT_FRAMES, RNA_EXPORT_SCALE } from './rna-export-scene.js';
 import { createRnaEnvironment } from './rna-environment.js';
 import { createRNAEndModels } from './rna-end-models.js';
+import { createInitiationView } from './rna-initiation-scene.js';
 import { RNA_BASES, SPLICING_INTRONS, basesAfterSplicing } from './transcription-sequence.js';
 
 const COLORS = { e1: 0xf67eb7, i1: 0xf4c16f, e2: 0xd476e5, i2: 0xf4c16f, e3: 0xff8cab };
 const vector = (x, y, z) => new THREE.Vector3(x, y, z);
 const ease = THREE.MathUtils.smoothstep;
+const matureRNA = basesAfterSplicing(SPLICING_INTRONS.length);
 export const REACTION = { loop: 1.48, join: 2.53 };
 
 export function createSplicingScene(stage, updateLabels, selectBase, { glowButton, selectObject, onContextLost } = {}) {
@@ -79,6 +81,11 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
   let cameraMove;
   let exportView;
   let exportFocus;
+  let initiation;
+  let initiationLoad;
+  let initiationState;
+  let initiationRest;
+  let initiationFramed = false;
   let specimen;
   let composer;
   let glowing = false;
@@ -260,6 +267,9 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
   }
 
   function renderExport(time, focus) {
+    if (initiationState) {
+      leaveInitiation();
+    }
     if (!exportView) {
       exportView = createRnaExportScene(loadModel);
       space.add(exportView.group);
@@ -293,6 +303,75 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
     render(saved);
   }
 
+  function loadInitiation() {
+    initiationLoad ??= loadModel('translation_initiation').then(source => {
+      initiation = createInitiationView(source, exportPose(EXPORT_FRAMES.at(-1)).rnaX);
+      initiation.group.visible = false;
+      space.add(initiation.group);
+      for (const key of ['eif3', 'eif2', 'erf1']) {
+        const asset = key === 'erf1' ? 'rna_erf1_specimen' : `translation_${key}_specimen`;
+        loadModel(asset).then(model => {
+          if (key === 'erf1') initiation.setFactor(model);
+          else initiation.setHelper(key, model);
+          if (initiationState && !specimen) initiation.draw(initiationState);
+        }).catch(() => { /* the lesson also explains the factor in text */ });
+      }
+    }).catch(error => {
+      initiationLoad = null;
+      throw error;
+    });
+    return initiationLoad;
+  }
+
+  function renderInitiation(state) {
+    const previous = initiationState;
+    if (!previous) {
+      renderExport(EXPORT_FRAMES.at(-1), 'ready');
+      initiationRest = beads.map(bead => bead.position.clone());
+    }
+    initiationState = state;
+    if (!initiation) return;
+    const overview = ['origin', 'find', 'cap'].includes(state.step);
+    initiation.group.visible = true;
+    exportView.group.visible = overview;
+    if (overview) exportView.hideExportProteins();
+    ribbon.visible = state.step !== 'origin';
+    if (previous?.step !== state.step) environment?.setCompartment(true, state.step !== 'find');
+    initiation.draw(state);
+    const goal = vector();
+    const blend = ease(state.loading, 0, 1);
+    const shift = state.reading ? state.reading.feed * 3 : (state.scan - 1) * 3;
+    for (const [i, base] of matureRNA.entries()) {
+      initiation.basePosition(i, goal, shift);
+      ribbon.worldToLocal(goal);
+      beads[base.index].position.copy(initiationRest[base.index]).lerp(goal, blend);
+      if (i === 0) continue;
+      const prior = matureRNA[i - 1].index;
+      connect(bonds[i - 1], beads[prior].position, beads[base.index].position,
+        base.index - prior > 1 ? 0.052 : 0.031);
+    }
+    ends.draw(beads[matureRNA[0].index].position, beads[matureRNA.at(-1).index].position, 1, 1, 0.66);
+    if (previous?.step === state.step && previous.focus === state.focus &&
+        previous.cut === state.cut && initiationFramed) return;
+    initiationFramed = true;
+    viewSize = state.step === 'origin' ? 12.6 : overview ? 9.6 : state.focus ? 3.2 : state.reading ? 5.4 : 6.2;
+    viewHeight = state.focus ? 3.4 : state.step === 'origin' || state.step === 'scan' ? 6.6 : 5.7;
+    const point = state.focus ? initiation.point(`site-${state.focus.toLowerCase()}`) : initiation.point('aug');
+    viewCenter = state.step === 'origin' ? vector(2.8, 0.7, 0) :
+      overview ? initiation.bounds().lerp(ribbon.position, 0.38) :
+        state.step === 'scan' ? vector(ribbon.position.x + 1.05, 0.27, 0.1) :
+        point.add(vector(0, state.step === 'assemble' ? 0.82 : state.reading ? 0.85 : 0.45, 0));
+    fit(!matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  function leaveInitiation() {
+    if (initiation) initiation.group.visible = false;
+    ribbon.visible = true;
+    initiationState = null;
+    initiationFramed = false;
+    leaveExport();
+  }
+
   function showSpecimen(source, { parts, viewpoint }) {
     const model = source.clone(true);
     const paints = new Map(parts.map(part => [part.mesh, neon(part.color, { body: 0.7, glow: 1.3 })]));
@@ -310,13 +389,15 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
     const bounds = new THREE.Box3().setFromObject(model);
     const size = bounds.getSize(vector());
     model.position.sub(bounds.getCenter(vector()));
+    const hiddenObjects = [ribbon, exportView?.group, environment?.group, initiation?.group].filter(Boolean);
     specimen = {
       model, paints, anchors, viewpoint, viewSize, viewHeight, viewCenter,
+      visibility: hiddenObjects.map(object => [object, object.visible]),
       position: camera.position.clone(), target: controls.target.clone(),
       minDistance: controls.minDistance, maxDistance: controls.maxDistance,
     };
     space.add(model);
-    ribbon.visible = exportView.group.visible = environment.group.visible = false;
+    hiddenObjects.forEach(object => { object.visible = false; });
     viewSize = Math.max(size.x, size.z) * 1.16;
     viewHeight = Math.max(size.y, size.z) * 1.16;
     viewCenter = vector(0, 0, 0);
@@ -329,7 +410,7 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
     specimen = null;
     space.remove(previous.model);
     for (const paint of previous.paints.values()) paint.dispose();
-    ribbon.visible = exportView.group.visible = environment.group.visible = true;
+    for (const [object, visible] of previous.visibility) object.visible = visible;
     ({ viewSize, viewHeight, viewCenter } = previous);
     cameraMove = null;
     controls.target.copy(previous.target);
@@ -397,13 +478,15 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
       const anchor = specimen.anchors.get(where);
       if (!anchor) return null;
       at = anchor.object.localToWorld(anchor.center.clone());
-    } else if (exportFocus && Object.hasOwn(exportView.anchors, where)) at = exportView.anchors[where];
+    } else if (initiationState && where === 'origin-pore') at = exportView.anchors.pore;
+    else if (initiationState && !['cap', 'tail'].includes(where)) at = initiation?.point(where);
+    else if (exportFocus && Object.hasOwn(exportView.anchors, where)) at = exportView.anchors[where];
     else if (where === 'protein') at = proteins.position;
     else if (where === 'branch') at = branch.position;
     else if (where === 'cap') at = ends.cap.position;
     else if (where === 'tail') at = ends.tailMidpoint.position;
     else if (typeof where === 'number') at = beads[where]?.position;
-    else {
+    else if (Array.isArray(where)) {
       const [a, b] = where.map(i => beads[i].position);
       at = a.clone().lerp(b, 0.5);
     }
@@ -420,6 +503,20 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
     const rect = renderer.domElement.getBoundingClientRect();
     ray.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1,
       1 - (event.clientY - rect.top) / rect.height * 2), camera);
+    if (initiationState) {
+      let target = initiation?.pick(ray);
+      if (initiationState.step === 'cap') {
+        const hit = ray.intersectObjects([ends.cap, ends.tailMidpoint])[0];
+        if (hit) target = hit.object === ends.cap ? 'cap' : 'tail';
+      }
+      if (initiationState.step === 'codon') {
+        const first = matureRNA.slice(0, 9);
+        const hit = ray.intersectObjects(first.map(base => beads[base.index]))[0];
+        if (hit) target = `codon-${Math.floor(first.findIndex(base => base.index === hit.object.userData.base) / 3)}`;
+      }
+      selectObject(target);
+      return;
+    }
     if (exportFocus) {
       selectObject(ray.intersectObjects(exportView.targets)[0]?.object.userData.object);
       return;
@@ -470,6 +567,7 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
 
   return {
     render, renderExport, leaveExport, screenPoint, getStructure, showStructure,
+    loadInitiation, renderInitiation, leaveInitiation,
     getSpecimen: loadModel, showSpecimen, closeSpecimen, resetView: () => fit(true),
   };
 }

@@ -96,10 +96,11 @@ export function createRnaEnvironment(loadModel) {
     }
   }
 
-  function setCompartment(showBoth) {
+  function setCompartment(showBoth, close = false) {
     material.uniforms.split.value = Number(showBoth);
-    moreChromatin.visible = !showBoth;
-    cytoplasm.visible = showBoth;
+    chromatin.visible = !close;
+    moreChromatin.visible = !showBoth && !close;
+    cytoplasm.visible = showBoth && !close;
     if (showBoth && !populated) populateCytoplasm();
   }
   setCompartment(false);
