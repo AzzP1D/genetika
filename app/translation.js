@@ -2,6 +2,12 @@ import { createSplicingScene } from './rna-splicing-scene.js';
 import { RNA_BASES, SPLICING_INTRONS, basesAfterSplicing } from './transcription-sequence.js';
 
 const byId = id => document.getElementById(id);
+if (new URLSearchParams(location.search).get('from') === 'map') {
+  const back = byId('back');
+  back.href = 'index.html';
+  back.textContent = '← К карте';
+}
+
 const parts = {
   cap: [
     'Кэп на 5′-конце',
