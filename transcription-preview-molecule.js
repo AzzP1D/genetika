@@ -1,11 +1,9 @@
 import * as THREE from 'three';
 import { neon, letterSprite, textSprite, motes, PALETTE, BASE_COLORS } from './style.js';
+import { PAS, PRE_MRNA, TRANSCRIPT } from './transcription-sequence.js';
+import { createRNAEndModels } from './rna-end-models.js';
 
-// Экзоны и интроны учебного примера из «Кода жизни».
-const TRANSCRIPT = ['ГАГАУГЦГУГУА', 'ГУАЦЦУАГ', 'УАУГГУ', 'ГУУАЦАГ', 'АЦУЦЦАУААГЦУ'].join('');
-// Учебное продолжение за последним экзоном. Сигнал, участок до разреза и хвост.
-const PAS = 'ААУААА';
-const BEFORE_CUT = TRANSCRIPT + PAS + 'ГУЦУГГЦУГУАЦЦА';
+const BEFORE_CUT = PRE_MRNA;
 const RNA = BEFORE_CUT + 'УГУГУЦУУГУГУЦУГУУЦУУГУГ';
 export const TERMINATION = {
   signal: TRANSCRIPT.length,
@@ -91,6 +89,10 @@ export function createMolecule(model, { showDirections = true } = {}) {
   rnaLinks.frustumCulled = false;
   hybrid.frustumCulled = false;
   group.add(rnaLinks, hybrid);
+  const decorations = createRNAEndModels();
+  group.add(decorations.group);
+  let capping = null;
+  let polyA = 0;
 
   const register = [textSprite('5′', '#bfefff', 0.29), textSprite('3′', '#bfefff', 0.29),
     textSprite('3′', '#bfefff', 0.29), textSprite('5′', '#bfefff', 0.29)];
@@ -255,6 +257,12 @@ export function createMolecule(model, { showDirections = true } = {}) {
       segment(rnaLinks, rnaLinks.count++, rnaBases[i - 1].position, rnaBases[i].position, 0.043 + 0.027 * wide);
     }
     rnaLinks.instanceMatrix.needsUpdate = hybrid.instanceMatrix.needsUpdate = true;
+    drawRNAEnds();
+  }
+
+  function drawRNAEnds() {
+    return decorations.draw(opening.copied >= 23 ? rnaBases[0].position : null,
+      separated ? rnaBases[TERMINATION.cut - 1].position : null, capping, polyA);
   }
 
   function setCandidates(index, active = true) {
@@ -268,6 +276,8 @@ export function createMolecule(model, { showDirections = true } = {}) {
 
   function reset() {
     separated = null;
+    capping = null;
+    polyA = 0;
     visibleBases = INTRO_END;
     factorEnd.z = 0.36;
     factors.position.copy(factorStart);
@@ -340,6 +350,7 @@ export function createMolecule(model, { showDirections = true } = {}) {
       const bounds = new THREE.Box3().setFromObject(polymerase);
       for (const label of rnaEnds) bounds.expandByPoint(label.position);
       for (const nucleotide of rnaBases) if (nucleotide.visible) bounds.expandByPoint(nucleotide.position);
+      if (decorations.cap.visible) bounds.expandByPoint(decorations.cap.position);
       for (const strand of samples) bounds.expandByPoint(strand[(visibleBases - 1) * SUBSTEPS]);
       return bounds.expandByScalar(0.45);
     },
@@ -359,7 +370,11 @@ export function createMolecule(model, { showDirections = true } = {}) {
     },
     setFilmEndLabels(visible) { for (const label of rnaEnds) label.visible = visible; },
     elongate(progress, wide) { synthesize(progress, wide, PRACTICE_LENGTH, TRANSCRIPT.length); },
-    beginTermination() { separated = null; },
+    beginTermination() { separated = null; polyA = 0; },
+    setCap(amount) { capping = amount; drawRNAEnds(); },
+    capSite() { return decorations.cap.position.clone(); },
+    setPolyA(amount) { polyA = amount; return drawRNAEnds(); },
+    tailSite() { return decorations.tailMidpoint.position.clone(); },
     drawTermination(count, ending) { synthesize(count - TRANSCRIPT.length, 0.41, TRANSCRIPT.length, RNA.length, ending); },
     splitTranscript() { separated = rnaBases.slice(0, TERMINATION.cut).map(nucleotide => nucleotide.position.clone()); },
     rnaBase(index) { return rnaBases[index].position.clone(); },

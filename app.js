@@ -205,7 +205,9 @@ function homeView() {
     '<span>Препараты школьного набора под «микроскопом» на экране — если настоящего нет под рукой</span></button>' +
     '<ol class="path">' + PATH.map((m, i) => {
       const done = Progress.isDone(m.id), soon = !m.href, next = cur && cur.id === m.id;
-      const desc = lv === 'olymp' && m.olympDesc ? m.olympDesc : m.desc;
+      const desc = m.id === 'transl' && Progress.isDone('transl-export')
+        ? 'Выход мРНК из ядра пройден'
+        : lv === 'olymp' && m.olympDesc ? m.olympDesc : m.desc;
       const cls = done ? 'done' : next ? 'next' : soon ? 'soon' : '';
       return '<li class="' + cls + '"><span class="dot">' + (done ? '✓' : i + 1) + '</span>' +
         '<button class="module" data-act="open" data-v="' + m.id + '"' + (soon ? ' disabled' : '') + '>' +

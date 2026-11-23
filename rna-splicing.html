@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Созревание РНК · Сплайсинг</title>
+  <link rel="stylesheet" href="rna-splicing.css?v=0.28">
+  <script type="importmap">
+    { "imports": {
+      "three": "./lib/three.module.js",
+      "three/addons/": "./lib/addons/",
+      "./style.js": "./style.js?v=0.28",
+      "./organelles.js": "./organelles.js?v=0.28",
+      "./membrane.js": "./membrane.js?v=0.28",
+      "./cytoskeleton.js": "./cytoskeleton.js?v=0.28",
+      "./transcription-sequence.js": "./transcription-sequence.js?v=0.28",
+      "./rna-splicing-scene.js": "./rna-splicing-scene.js?v=0.28",
+      "./rna-end-models.js": "./rna-end-models.js?v=0.28"
+    } }
+  </script>
+  <script type="module" src="rna-splicing.js?v=0.28"></script>
+</head>
+<body>
+  <header>
+    <div><p>Ядро · созревание РНК</p><h1 id="lesson-heading">Сплайсинг</h1></div>
+    <a href="index.html">К карте</a>
+  </header>
+
+  <section id="guide" aria-label="Пояснение к сцене">
+    <div aria-live="polite"><h2 id="note-title">Пре-мРНК</h2><p id="note"></p></div>
+    <button id="details-toggle" type="button" aria-expanded="false" aria-controls="details">Подробнее</button>
+    <div id="details" tabindex="0" hidden>
+      <div id="copy-map" hidden aria-label="Соответствие участков гена и его копии"></div>
+      <div id="detail-copy"></div>
+      <a id="detail-source" hidden target="_blank" rel="noopener noreferrer"></a>
+    </div>
+  </section>
+
+  <main id="stage" aria-label="Трёхмерная модель пре-мРНК">
+    <div id="labels"></div>
+  </main>
+
+  <footer>
+    <div id="lesson">
+      <div id="progress-area" hidden>
+        <label id="timeline-label" for="timeline">Кадры сплайсинга</label><output id="frame-name" for="timeline"></output>
+        <input id="timeline" type="range" min="0" max="1" step="0.01" value="0">
+        <button id="playback" type="button">Пауза</button>
+      </div>
+      <div id="task" aria-live="polite" aria-atomic="true"><strong id="task-title">Загрузка…</strong><p id="task-copy"></p></div>
+      <div id="parts" aria-label="Фрагменты РНК"></div>
+      <div id="actions"></div>
+    </div>
+    <div id="structure" hidden>
+      <strong>Сплайсосома человека</strong>
+      <p id="structure-caption"></p>
+      <div id="structure-layers" class="structure-actions" role="group" aria-label="Слои модели">
+        <button type="button" data-layer="all" aria-pressed="true">Весь комплекс</button>
+        <button type="button" data-layer="rna" aria-pressed="false">Обе РНК</button>
+        <button type="button" data-layer="substrate" aria-pressed="false">Пре-мРНК</button>
+        <button type="button" data-layer="helpers" aria-pressed="false">Малые РНК</button>
+      </div>
+      <div class="structure-actions">
+        <button id="close-model" type="button">К сплайсингу</button>
+        <a href="https://www.rcsb.org/structure/5YZG" target="_blank" rel="noopener noreferrer">RCSB PDB 5YZG</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

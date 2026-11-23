@@ -25,6 +25,9 @@ const glowButton = document.getElementById('glow');
 const movieControls = document.getElementById('movie-controls');
 const movieProgress = document.getElementById('movie-progress');
 const movieToggle = document.getElementById('movie-toggle');
+const processControls = document.getElementById('processing-controls');
+const processRange = document.getElementById('processing-range');
+const processToggle = document.getElementById('processing-toggle');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 stage.prepend(renderer.domElement);
@@ -171,10 +174,30 @@ function show(group, title, color, fog = 0) {
   probe = { delay: 2, elapsed: 0, frames: 0 };
 }
 
-function animate(duration, draw) {
+function animate(duration, draw, caption) {
   if (playing) throw new Error('Animation already running');
-  return new Promise(resolve => { playing = { duration, draw, resolve, time: 0 }; });
+  if (caption) {
+    document.getElementById('processing-label').textContent = caption;
+    processControls.hidden = false;
+    processRange.value = 0;
+    processToggle.textContent = 'Пауза';
+  }
+  return new Promise(resolve => { playing = { duration, draw, resolve, time: 0, caption }; });
 }
+
+processToggle.onclick = () => {
+  if (!playing?.caption) return;
+  playing.paused = !playing.paused;
+  processToggle.textContent = playing.paused ? 'Продолжить' : 'Пауза';
+};
+processRange.oninput = () => {
+  if (!playing?.caption) return;
+  const t = Number(processRange.value);
+  playing.time = t * playing.duration;
+  playing.paused = true;
+  processToggle.textContent = 'Продолжить';
+  playing.draw(t * t * (3 - 2 * t), t);
+};
 
 async function switchView(target, near, change) {
   controls.enabled = false;
@@ -592,6 +615,46 @@ function filmShot(id, at) {
   if (id === 'film-exit') tell('Общий план · воспроизведение ускоряется', 'Проследи, как фуксиевая цепь РНК становится длиннее по мере движения полимеразы.');
 }
 
+function beginCapping() {
+  phase = 'film-cap';
+  setFilmControls(false);
+  where.textContent = 'Растущая РНК · кэпирование';
+  const first = () => molecule.rnaEnd(true);
+  const last = () => molecule.rnaEnd(false);
+  const middle = first().lerp(last(), 0.5).add(vector(0, 0.38, 0));
+  const distance = fit(Math.abs(last().x - first().x) + 2.9, 3.7, 1.12);
+  frame(middle, middle.clone().add(vector(0, 0.44, distance)), distance * 0.5, distance * 2);
+  inspector.explain('rna-cap', first);
+  tell('Какой конец РНК уже вышел?', 'Полимераза ещё достраивает РНК. Покажи конец, к которому ферменты могут добавить кэп.');
+  const wrongEnd = () => tell('Здесь РНК ещё удлиняется',
+    'К 3′-концу полимераза добавляет новые звенья. Кэп появится на 5′-конце, который вышел раньше.', 'error');
+  setSpots([
+    site('cap-5', '5′ · начало РНК', first, vector(0.27, -0.55, 0.24), attachCap),
+    site('cap-3', '3′ · растущий конец', last, vector(-0.35, -0.68, 0.35), wrongEnd),
+  ]);
+  setActions(['Выбрать 5′-конец', attachCap], ['Выбрать 3′-конец', wrongEnd]);
+}
+
+async function attachCap() {
+  setSpots();
+  setActions();
+  tell('Кэп присоединяется к началу РНК', 'Зелёное звено закрепляется на 5′-конце. Три золотые метки показывают фосфатные группы, которые соединяют кэп с РНК.');
+  await animate(2.5, k => molecule.setCap(k), 'Кадры кэпирования');
+  inspector.explain('rna-cap', () => molecule.capSite());
+  tell('Кэп на месте, а РНК ещё растёт', 'Кэп защищает начало мРНК. Позже белки, узнающие кэп, помогут рибосоме начать трансляцию.');
+  setSpots([site('cap-attached', 'Кэп', () => molecule.capSite(), vector(0.24, -0.52, 0.22),
+    () => inspector.explain('rna-cap', () => molecule.capSite()))]);
+  setActions(['Продолжить элонгацию', () => {
+    phase = 'film';
+    where.textContent = 'ДНК · элонгация';
+    setSpots();
+    setActions();
+    setFilmControls(true);
+    movieToggle.textContent = 'Пауза';
+    film.resume();
+  }], ['Повторить кэпирование', attachCap]);
+}
+
 function endFilm() {
   if (afterFilm) {
     const onEnd = afterFilm;
@@ -742,11 +805,17 @@ let previousTime;
 renderer.setAnimationLoop(timestamp => {
   const dt = previousTime === undefined ? 0 : Math.min(0.12, (timestamp - previousTime) / 1000);
   previousTime = timestamp;
-  if (playing) {
+  if (playing && !playing.paused) {
     playing.time += dt * speed;
     const t = Math.min(1, playing.time / playing.duration);
     playing.draw(t * t * (3 - 2 * t), t);
-    if (t === 1) { const { resolve } = playing; playing = null; resolve(); }
+    if (playing.caption) processRange.value = t;
+    if (t === 1) {
+      const { resolve, caption } = playing;
+      playing = null;
+      if (caption) processControls.hidden = true;
+      resolve();
+    }
   }
   if (phase === 'film' && film.running) {
     film.tick(dt * speed);
@@ -790,7 +859,7 @@ Promise.all([olymp ? null : createCell(), loadModel('pol2-preview')]).then(([ani
   cellPickables = [];
   cell.group.traverse(obj => { if (obj.isMesh && obj.userData.id) cellPickables.push(obj); });
   nucleus = createNucleus();
-  film = createElongation({ molecule, camera, controls, fit, frame, onShot: filmShot, onFinished: endFilm });
+  film = createElongation({ molecule, camera, controls, fit, frame, onShot: filmShot, onFinished: endFilm, onCapping: beginCapping });
   startCell();
 }).catch(error => {
   tell('Сцена не загрузилась', 'Открой страницу через локальный сервер приложения и попробуй снова.', 'error');

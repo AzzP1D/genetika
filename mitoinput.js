@@ -32,6 +32,7 @@ export function bindLessonInput(canvas, controls, {drag, tap}) {
   }, true);
 
   canvas.addEventListener('pointermove', event => {
+    if (event.pointerId === down?.id && Math.hypot(event.clientX - down.x, event.clientY - down.y) > 8) down = null;
     if (event.pointerId === grabbed) drag('move', event);
   });
 

@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Трансляция · Генетика</title>
+  <link rel="stylesheet" href="translation.css?v=0.28">
+  <script src="path.js?v=0.28"></script>
+  <script type="importmap">
+    { "imports": {
+      "three": "./lib/three.module.js",
+      "three/addons/": "./lib/addons/",
+      "./style.js": "./style.js?v=0.28",
+      "./organelles.js": "./organelles.js?v=0.28",
+      "./membrane.js": "./membrane.js?v=0.28",
+      "./cytoskeleton.js": "./cytoskeleton.js?v=0.28",
+      "./transcription-sequence.js": "./transcription-sequence.js?v=0.28",
+      "./rna-splicing-scene.js": "./rna-splicing-scene.js?v=0.28",
+      "./rna-export-scene.js": "./rna-export-scene.js?v=0.28",
+      "./rna-environment.js": "./rna-environment.js?v=0.28",
+      "./rna-initiation-scene.js": "./rna-initiation-scene.js?v=0.28",
+      "./rna-initiation.js": "./rna-initiation.js?v=0.28",
+      "./rna-elongation.js": "./rna-elongation.js?v=0.28",
+      "./rna-reading-view.js": "./rna-reading-view.js?v=0.28",
+      "./rna-codon-inspector.js": "./rna-codon-inspector.js?v=0.28",
+      "./rna-protein-details.js": "./rna-protein-details.js?v=0.28",
+      "./mitoinput.js": "./mitoinput.js?v=0.28",
+      "./rna-end-models.js": "./rna-end-models.js?v=0.28"
+    } }
+  </script>
+  <script type="module" src="translation.js?v=0.28"></script>
+</head>
+<body>
+  <header class="panel">
+    <h1>Трансляция</h1>
+    <div class="header-actions">
+      <button id="glow" type="button" aria-label="Свечение сцены" aria-pressed="false" hidden>✧</button>
+      <a id="back" href="rna-splicing.html?frame=mature">← Сплайсинг</a>
+      <button id="close-specimen" type="button" hidden>← К уроку</button>
+    </div>
+  </header>
+
+  <main id="stage" aria-label="Трёхмерная модель зрелой мРНК">
+    <div id="markers" hidden>
+      <button class="end" type="button" data-end="cap" aria-label="Кэп на 5′-конце">5′</button>
+      <button class="end" type="button" data-end="tail" aria-label="Поли(А)-хвост на 3′-конце">3′</button>
+      <span id="selection" aria-hidden="true" hidden></span>
+    </div>
+    <div id="export-markers" hidden>
+      <span data-point="nucleus">Ядро</span>
+      <span data-point="cytoplasm">Цитоплазма</span>
+      <button data-point="membranes" data-select="membrane" type="button">Две мембраны</button>
+      <div class="guide specimen-marker" data-point="pore">
+        <button data-select="pore" type="button">Ядерная пора</button>
+        <button class="loupe" data-specimen="pore" type="button" aria-label="Подробнее о ядерной поре" title="Подробнее о ядерной поре"></button>
+      </div>
+      <div class="guide specimen-marker" data-point="factor">
+        <button data-select="factor" type="button">Белки экспорта</button>
+        <button class="loupe" data-specimen="factor" type="button" aria-label="Подробнее о белках экспорта" title="Подробнее о белках экспорта"></button>
+      </div>
+      <div class="guide specimen-marker" data-point="ddx19">
+        <button data-select="ddx19" type="button">DDX19B</button>
+        <button class="loupe" data-specimen="ddx19" type="button" aria-label="Подробнее о DDX19B" title="Подробнее о DDX19B"></button>
+      </div>
+    </div>
+    <div id="initiation-markers" hidden>
+      <span class="guide" data-point="nucleolus" data-offset="34" hidden>Ядрышко</span>
+      <span class="guide" data-point="origin-pore" data-offset="52" hidden>Ядерная пора</span>
+      <div class="guide specimen-marker" data-point="40s" data-offset="-48" hidden>
+        <button data-select="40s" type="button">Малая · 40S</button>
+        <button class="loupe" data-specimen="ribosome" type="button" aria-label="Подробнее о рибосоме"></button>
+      </div>
+      <button class="guide" data-point="cap" data-offset="28" data-select="cap" type="button" hidden>Кэп · 5′</button>
+      <button class="guide" data-point="tail" data-offset="20" data-select="tail" type="button" hidden>Хвост · 3′</button>
+      <div class="guide specimen-marker" data-point="eif3" data-offset="-40" hidden>
+        <span>eIF3</span>
+        <button class="loupe" data-specimen="eif3" type="button" aria-label="Подробнее об eIF3"></button>
+      </div>
+      <div class="guide specimen-marker" data-point="eif2" data-offset="-38" hidden>
+        <span>eIF2</span>
+        <button class="loupe" data-specimen="eif2" type="button" aria-label="Подробнее об eIF2"></button>
+      </div>
+      <button class="guide" data-point="codon-0" data-offset="46" data-select="codon-0" type="button" hidden></button>
+      <button class="guide" data-point="codon-1" data-offset="0" data-select="codon-1" type="button" hidden></button>
+      <button class="guide" data-point="codon-2" data-offset="-46" data-select="codon-2" type="button" hidden></button>
+      <span class="guide" data-point="aug" data-offset="27" hidden>Старт · АУГ</span>
+      <span class="guide" data-point="trna" data-offset="-34" hidden>тРНК · Met</span>
+      <div class="guide specimen-marker" data-point="60s" data-offset="-38" hidden>
+        <span>Большая · 60S</span>
+        <button class="loupe" data-specimen="ribosome" type="button" aria-label="Подробнее о большой субъединице рибосомы"></button>
+      </div>
+      <button class="guide" data-point="site-a" data-offset="-26" data-select="site-a" type="button" hidden>Участок A</button>
+      <button class="guide" data-point="site-p" data-offset="26" data-select="site-p" type="button" hidden>Участок P</button>
+      <div class="guide specimen-marker" data-point="erf1" data-offset="-36" hidden>
+        <span>eRF1</span>
+        <button class="loupe" data-specimen="erf1" type="button" aria-label="Подробнее об eRF1"></button>
+      </div>
+    </div>
+    <div id="reading-guide" hidden>
+      <div id="site-rail" role="group" aria-label="Участки рибосомы. Нажми, чтобы рассмотреть">
+        <span aria-hidden="true">5′</span>
+        <button type="button" data-focus="E"><strong>E</strong><span></span></button>
+        <button type="button" data-focus="P"><strong>P</strong><span></span></button>
+        <button type="button" data-focus="A"><strong>A</strong><span></span></button>
+        <span aria-hidden="true">3′</span>
+        <button id="open-codon-inspector" class="loupe" type="button" aria-label="Как тРНК узнаёт кодон?" title="Как тРНК узнаёт кодон?" aria-haspopup="dialog" aria-controls="codon-inspector" hidden></button>
+      </div>
+      <p id="site-explanation" aria-live="polite" hidden></p>
+      <div id="pairing" hidden>
+        <span>мРНК 5′</span><span class="pair-bases" id="pair-codon"></span><span>3′</span>
+        <span>тРНК 3′</span><span class="pair-bases" id="pair-anticodon"></span><span>5′</span>
+      </div>
+      <div id="peptide-order" aria-label="Аминокислоты, соединённые в цепь" hidden></div>
+    </div>
+    <div id="initiation-status" role="status" hidden></div>
+    <div id="specimen-markers" aria-hidden="true" hidden></div>
+    <div id="specimen-status" role="status" hidden></div>
+    <div id="model-unavailable" hidden>
+      <p>3D-сцена недоступна. Урок можно пройти по пояснениям и кнопкам.</p>
+      <button id="restore-scene" type="button" hidden>Восстановить 3D-сцену</button>
+    </div>
+  </main>
+
+  <div id="lesson-panels" class="lesson-panels">
+    <section class="panel" id="scene-summary" aria-labelledby="scene-title">
+      <h2 id="scene-title">Зрелая мРНК в ядре</h2>
+      <p id="scene-copy">При сплайсинге два интрона удалились, а три экзона соединились в одну цепь. На её концах видны кэп (5′) и поли(А)-хвост (3′).</p>
+    </section>
+
+    <footer class="panel" aria-label="Задание и пояснение">
+      <div id="note-area" aria-live="polite">
+        <h2 id="note-title">Рассмотри части мРНК</h2>
+        <p id="note">Поверни модель и нажми на участок, чтобы узнать о нём больше.</p>
+      </div>
+      <button id="details-toggle" type="button" aria-controls="details" aria-expanded="false">Подробнее</button>
+      <div id="details" tabindex="0" hidden>
+        <p id="detail-copy">Бирюзовые перемычки показывают два стыка, где соединились соседние экзоны. Число экзонов зависит от гена. Здесь мы рассматриваем ту же цепь из трёх экзонов, которую получили в финале сплайсинга.</p>
+        <div id="model-source" hidden>
+          <p>Оболочка, пора и движение мРНК в сцене показаны схематически. Экспериментальные структуры можно рассмотреть отдельно.</p>
+          <div id="specimen-links">
+            <button data-specimen="pore" type="button">Ядерная пора</button>
+            <button data-specimen="factor" type="button">NXF1–NXT1</button>
+            <button data-specimen="ddx19" type="button">DDX19B</button>
+          </div>
+        </div>
+        <div id="initiation-source" hidden>
+          <p>Поверхности субъединиц получены из PDB 6Y0G, стартовая тРНК — из PDB 8PJ2. Путь мРНК, сборка и метионин показаны учебно.</p>
+          <div class="initiation-specimens">
+            <button data-specimen="ribosome" type="button">Рибосома</button>
+            <button data-specimen="eif3" type="button">eIF3</button>
+            <button data-specimen="eif2" type="button">eIF2</button>
+            <button data-specimen="erf1" id="release-specimen" type="button" hidden>eRF1</button>
+          </div>
+        </div>
+      </div>
+      <div id="parts" role="group" aria-label="Участки зрелой мРНК">
+        <button type="button" data-part="cap" aria-pressed="false">Кэп · 5′</button>
+        <button type="button" data-part="e1" aria-pressed="false">Экзон 1</button>
+        <button type="button" data-part="e2" aria-pressed="false">Экзон 2</button>
+        <button type="button" data-part="e3" aria-pressed="false">Экзон 3</button>
+        <button type="button" data-part="tail" aria-pressed="false">Поли(А) · 3′</button>
+      </div>
+      <div id="timeline-controls" role="group" aria-label="Просмотр анимации" hidden>
+        <div id="frame-navigation">
+          <button id="previous-frame" type="button" aria-label="Предыдущий кадр">←</button>
+          <output id="frame-name" for="timeline"></output>
+          <button id="next-frame" type="button" aria-label="Следующий кадр">→</button>
+        </div>
+        <input id="timeline" type="range" min="0" max="8" value="0" step="0.01" aria-label="Кадры выхода мРНК">
+      </div>
+      <div id="lesson-controls" role="group" aria-label="Действия в уроке"></div>
+    </footer>
+  </div>
+  <section class="panel" id="specimen-panel" aria-labelledby="specimen-title" hidden>
+    <div id="specimen-heading">
+      <h2 id="specimen-title"></h2>
+      <button id="specimen-reset" type="button">Вернуть вид</button>
+    </div>
+    <div id="specimen-meta">
+      <ul id="specimen-legend" aria-label="Части образца"></ul>
+      <a id="specimen-source" target="_blank" rel="noopener noreferrer"></a>
+    </div>
+    <div id="specimen-copy" tabindex="0">
+      <h3>Строение</h3>
+      <p id="specimen-structure"></p>
+      <h3>Что делает</h3>
+      <ul id="specimen-functions"></ul>
+    </div>
+  </section>
+  <dialog id="codon-inspector" aria-labelledby="codon-inspector-title">
+    <header class="panel">
+      <h2 id="codon-inspector-title">Трансляция на схеме</h2>
+      <form method="dialog"><button type="submit" autofocus>← К уроку</button></form>
+    </header>
+    <div class="codon-diagram">
+      <section class="schematic-sequence" aria-label="Кодоны учебной мРНК">
+        <p>мРНК · от старта до стопа · 5′ → 3′</p>
+        <ol id="schematic-track"></ol>
+      </section>
+      <div id="schematic-release" role="group" aria-label="Освобождённый полипептид" hidden></div>
+      <section class="schematic-dock" aria-label="Крупный план участков рибосомы">
+        <div class="schematic-lane" id="schematic-prev" hidden></div>
+        <div class="schematic-lane" id="schematic-current"></div>
+      </section>
+    </div>
+    <template id="schematic-lane-template">
+      <div class="schematic-trna">
+        <div class="schematic-cargo"></div>
+        <div class="clover">
+          <div class="clover-acceptor"><button type="button" data-legend-part="rna-ends">5′</button><button type="button" data-legend-part="acceptor">ЦЦА&nbsp;3′</button></div>
+          <button type="button" class="clover-d" data-legend-part="side-loops" aria-label="Петля D">D</button>
+          <button type="button" class="clover-t" data-legend-part="side-loops" aria-label="Петля TΨC">TΨC</button>
+          <div class="clover-anticodon"></div>
+        </div>
+        <div class="schematic-row">
+          <span>3′</span><div class="schematic-bases anticodon-bases" role="group" aria-label="Антикодон тРНК"></div><span>5′</span>
+        </div>
+      </div>
+      <p class="schematic-stop" hidden>eRF1 · фактор освобождения</p>
+      <div class="schematic-contacts" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="schematic-row">
+        <span>5′</span><div class="schematic-bases codon-bases" role="group" aria-label="Кодон мРНК"></div><span>3′</span>
+      </div>
+      <p class="schematic-site"></p>
+    </template>
+    <section class="panel codon-task" aria-label="Проверка пары">
+      <h3 id="schematic-step"></h3>
+      <p id="codon-feedback" role="status"></p>
+      <div id="codon-options" role="group" aria-label="Выбери тРНК"></div>
+      <details id="schematic-legend">
+        <summary>Что обозначено на клевере тРНК?</summary>
+        <dl>
+          <dt>Антикодон и антикодоновая петля</dt>
+          <dd>Антикодон — три буквы на кончике нижней петли. Каждая смотрит на одну букву кодона мРНК. Петля шире этих трёх букв.</dd>
+          <dt id="schematic-acceptor">Акцепторный участок и ЦЦА</dt>
+          <dd>Верхний стебель заканчивается последовательностью ЦЦА (CCA). Аминокислота присоединяется к последней А на 3′-конце.</dd>
+          <dt id="schematic-rna-ends">5′ и 3′</dt>
+          <dd>Так обозначают два конца одной цепи РНК. Внизу цифры у трёх букв показывают направление чтения пары: кодон идёт 5′ → 3′, антикодон показан навстречу ему.</dd>
+          <dt id="schematic-side-loops">D и TΨC</dt>
+          <dd>D — дигидроуридин, Ψ — псевдоуридин, T — риботимидин, а C — цитидин (Ц в русской записи). Боковые петли помогают тРНК принять рабочую объёмную форму.</dd>
+          <dt>Парные стебли и маленькая петля</dt>
+          <dd>Стебли — участки, где основания одной цепи спарились между собой. Маленькая переменная петля между антикодоновой и TΨC-петлями у разных тРНК отличается по длине. «Клевер» показывает связи на плоскости. В клетке тРНК сложена в объёме.</dd>
+        </dl>
+      </details>
+    </section>
+  </dialog>
+</body>
+</html>

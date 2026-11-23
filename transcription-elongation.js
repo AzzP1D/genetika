@@ -8,11 +8,12 @@ const SHOTS = [
 ];
 const DURATION = SHOTS.reduce((sum, shot) => sum + shot.duration, 0);
 
-export function createElongation({ molecule, camera, controls, fit, frame, onShot, onFinished }) {
+export function createElongation({ molecule, camera, controls, fit, frame, onShot, onFinished, onCapping }) {
   const arrivalPosition = new THREE.Vector3(), arrivalTarget = new THREE.Vector3();
   const eye = new THREE.Vector3(), target = new THREE.Vector3(), left = new THREE.Vector3();
   const blendedTarget = new THREE.Vector3(), blendedPosition = new THREE.Vector3();
   let first = 0, last = SHOTS.length - 1, shotIndex, time, elapsed, resumed, running = false;
+  let capPending;
 
   function captureCamera() {
     arrivalPosition.copy(camera.position);
@@ -64,6 +65,8 @@ export function createElongation({ molecule, camera, controls, fit, frame, onSho
     const cut = molecule.opening.copied !== expected;
     first = from;
     last = to;
+    capPending = first === 0 && last === SHOTS.length - 1;
+    if (capPending) molecule.setCap(null);
     elapsed = 0;
     resumed = Infinity;
     controls.enabled = false;
@@ -80,6 +83,12 @@ export function createElongation({ molecule, camera, controls, fit, frame, onSho
     time = Math.min(shot.duration, time + dt);
     resumed += dt;
     draw();
+    if (capPending && molecule.opening.copied >= 23) {
+      capPending = false;
+      pause();
+      onCapping();
+      return;
+    }
     if (time < shot.duration) return;
     if (shotIndex < last) {
       selectShot(shotIndex + 1);
