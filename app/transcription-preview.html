@@ -80,6 +80,10 @@
     #movie-controls button { min-height:38px; font-size:13px; }
     #movie-toggle { background:#123141; border-color:#518397; }
     #movie-progress { display:block; flex:0 0 100%; width:100%; height:4px; margin-bottom:2px; accent-color:var(--cyan); }
+    #processing-controls { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:2px 9px; margin-top:8px; }
+    #processing-controls[hidden] { display:none; }
+    #processing-label { grid-column:1/-1; color:var(--muted); font-size:13px; }
+    #processing-range { width:100%; margin:0; accent-color:var(--cyan); }
     @media (max-height:580px) { footer { min-height:84px; padding-block:8px } header { padding-block:6px } }
   </style>
   <script type="importmap">
@@ -93,15 +97,17 @@
       "./membrane.js": "./membrane.js?v=0.27",
       "./cytoskeleton.js": "./cytoskeleton.js?v=0.27",
       "./style.js": "./style.js?v=0.27",
-      "./transcription-preview-molecule.js": "./transcription-preview-molecule.js?v=0.27",
-      "./transcription-inspector.js": "./transcription-inspector.js?v=0.27",
-      "./transcription-elongation.js": "./transcription-elongation.js?v=0.27",
+      "./transcription-preview-molecule.js": "./transcription-preview-molecule.js?v=0.27.2",
+      "./rna-end-models.js": "./rna-end-models.js?v=0.27.1",
+      "./transcription-sequence.js": "./transcription-sequence.js?v=0.27.2",
+      "./transcription-inspector.js": "./transcription-inspector.js?v=0.27.1",
+      "./transcription-elongation.js": "./transcription-elongation.js?v=0.27.1",
       "./transcription-initiation-olymp.js": "./transcription-initiation-olymp.js?v=0.27",
       "./transcription-termination-detail.js": "./transcription-termination-detail.js?v=0.27",
-      "./transcription-termination.js": "./transcription-termination.js?v=0.27.2"
+      "./transcription-termination.js": "./transcription-termination.js?v=0.27.6"
     } }
   </script>
-  <script type="module" src="./transcription-preview.js?v=0.27"></script>
+  <script type="module" src="./transcription-preview.js?v=0.27.2"></script>
 </head>
 <body>
   <header>
@@ -143,6 +149,11 @@
         <progress id="movie-progress" max="1" value="0" aria-label="Ход ролика"></progress>
         <button id="movie-toggle" type="button">Пауза</button>
         <button id="movie-restart" type="button">С начала ролика</button>
+      </div>
+      <div id="processing-controls" hidden>
+        <label id="processing-label" for="processing-range"></label>
+        <input id="processing-range" type="range" min="0" max="1" value="0" step="0.01">
+        <button id="processing-toggle" type="button">Пауза</button>
       </div>
     </div>
     <div id="detail-content" hidden>

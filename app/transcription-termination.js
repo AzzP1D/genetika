@@ -56,7 +56,7 @@ export function createTermination({ molecule, asset, camera, controls, fit, fram
   const freeEndLabel = v(-0.28, 0.42, 0.26);
   const dna = index => () => molecule.strand(1, molecule.START + index);
   const polymerase = () => molecule.filmLandmark('active');
-  let cutAt, stopAt;
+  let cutAt, stopAt, polyAStart;
 
   function draw() {
     molecule.drawTermination(state.count, state);
@@ -209,10 +209,46 @@ export function createTermination({ molecule, asset, camera, controls, fit, fram
     task('Какая РНК пойдёт на созревание?', 'Разрез создал два фрагмента. Сравни длинную отделившуюся цепь и короткий хвост, который ещё тянется от полимеразы.');
     inspector.explain('term-products', freeEnd);
     setSpots([
-      spot('product', 'Отделившаяся РНК', freeEnd, freeEndLabel, introduceXrn2),
+      spot('product', 'Отделившаяся РНК', freeEnd, freeEndLabel, introducePolyA),
       spot('tail', 'Хвост у полимеразы', tailEnd, v(0.56, 0.82, 0.15),
         () => retry('Этот фрагмент остаётся у фермента', 'Его первый нуклеотид теперь имеет свободный 5′-конец. Для созревания нужна цепь, которая уже отделилась.')),
     ]);
+  }
+
+  async function introducePolyA() {
+    polyAStart = state.count;
+    task('У будущей мРНК появился новый 3′-конец',
+      'Справа полимераза ещё работает с другим фрагментом. Проследи, что происходит с той цепью, которая уже отделилась.');
+    inspector.explain('term-poly-a', freeEnd);
+    await move(signalPoint(), freeEnd().add(v(1.4, 0, 0)), 7.0, 0.85);
+    task('Где вырастет поли(А)-хвост?', 'Найди свободный конец, к которому фермент сможет присоединить первое звено А.');
+    const wrong = () => retry('ААУААА — сигнал внутри РНК',
+      'Белки используют его как ориентир для разреза. Хвост вырастет на образовавшемся 3′-конце чуть дальше по цепи.');
+    setSpots([
+      spot('poly-a-end', 'Свободный 3′-конец', freeEnd, freeEndLabel, addPolyA),
+      spot('poly-a-signal', 'Сигнал ААУААА', signalPoint, v(0, 0.58, 0.30), wrong),
+    ]);
+    setActions(['На свободном 3′-конце', addPolyA], ['На сигнале ААУААА', wrong]);
+  }
+
+  async function addPolyA() {
+    molecule.setPolyA(0);
+    task('Поли(А)-полимераза достраивает конец',
+      'Следи за голубыми звеньями. Фермент добавляет одно А за другим к свободному концу отделившейся РНК.');
+    await animate(3.8, (_, time) => {
+      state.count = polyAStart + time * 2;
+      draw();
+      molecule.setPolyA(time);
+    }, 'Кадры роста поли(А)-хвоста');
+    task('Поли(А)-хвост вырос после разреза',
+      'Сигнал ААУААА остался внутри цепи. Голубой хвост на 3′-конце помогает будущей мРНК дольше сохраняться. У полимеразы остался другой фрагмент. Посмотри, что с ним произойдёт.');
+    setSpots([spot('poly-a', 'Поли(А)-хвост', () => molecule.tailSite(), v(0.2, 0.54, 0.3),
+      () => inspector.explain('term-poly-a', () => molecule.tailSite()))]);
+    setActions(['К фрагменту у полимеразы', async () => {
+      task('Возвращаемся к полимеразе', 'Она ещё удерживает короткий фрагмент РНК. У него после разреза появился свободный 5′-конец.');
+      await move(freeEnd(), polymerase(), 8.7, 0.85);
+      introduceXrn2();
+    }], ['Повторить рост хвоста', addPolyA]);
   }
 
   function introduceXrn2() {
@@ -346,7 +382,7 @@ export function createTermination({ molecule, asset, camera, controls, fit, fram
 
   function summary() {
     onComplete();
-    task('Транскрипция завершилась', 'Сравни два места: где РНК отделилась и где полимераза сошла с ДНК. Расстояние между ними в модели уменьшено. В отделившейся цепи нашего примера ещё есть интроны.');
+    task('Транскрипция завершилась', 'Полимераза сошла с ДНК. У отделившейся РНК уже есть кэп и поли(А)-хвост. В показанном примере осталось убрать интроны.');
     inspector.explain('term-summary', () => cutAt.clone().lerp(stopAt, 0.5));
     setSpots([
       spot('compare-cut', 'Разрез РНК', () => cutAt.clone(), v(0, -0.71, 0.24),
@@ -354,21 +390,27 @@ export function createTermination({ molecule, asset, camera, controls, fit, fram
       spot('compare-stop', 'Сход полимеразы', () => stopAt.clone(), v(0, 0.77, 0.32),
         () => inspector.explain('term-detach', () => stopAt.clone())),
     ]);
-    setActions(['Почему она сходит?', showReasons], ['Вся пре-мРНК', wholeProduct],
+    setActions(['Почему она сходит?', showReasons], ['Вся пре-мРНК', wholeProduct], ['К сплайсингу', openSplicing],
       ['Повторить терминацию', start], ['К началу урока', restartLesson]);
   }
 
   async function wholeProduct() {
-    task('Пре-мРНК готова к дальнейшей обработке', 'Фуксиевая цепь отделилась от полимеразы. Нажми на её концы, чтобы узнать, чем они различаются.');
+    task('Пре-мРНК с кэпом и поли(А)-хвостом', 'Рассмотри оба конца цепи. Дальше сплайсосома соединит экзоны и уберёт интроны.');
     const first = () => molecule.rnaBase(0);
     const start = first(), end = freeEnd();
     await move(start, end, Math.abs(end.x - start.x) + 8.5, 1.35);
     inspector.explain('term-whole', freeEnd);
     setSpots([
-      spot('whole-5', '5′-конец', first, v(1.05, -0.75, 0.33), () => inspector.explain('term-first-end', first)),
-      spot('whole-3', '3′-конец', freeEnd, v(-1.05, -0.75, 0.33), () => inspector.explain('term-final-end', freeEnd)),
+      spot('whole-5', 'Кэп · 5′', () => molecule.capSite(), v(1.05, -0.75, 0.33),
+        () => inspector.explain('rna-cap', () => molecule.capSite())),
+      spot('whole-3', 'Поли(А) · 3′', () => molecule.tailSite(), v(-1.05, -0.75, 0.33),
+        () => inspector.explain('term-poly-a', () => molecule.tailSite())),
     ]);
-    setActions(['Сравнить два места', compareEvents]);
+    setActions(['К сплайсингу', openSplicing], ['Сравнить два места', compareEvents]);
+  }
+
+  function openSplicing() {
+    location.href = 'rna-splicing.html';
   }
 
   function inspect(ray) {
