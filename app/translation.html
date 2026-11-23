@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Трансляция · Генетика</title>
-  <link rel="stylesheet" href="translation.css?v=0.27.6">
+  <link rel="stylesheet" href="translation.css?v=0.27.8">
   <script src="path.js?v=0.27.2"></script>
   <script type="importmap">
     { "imports": {
@@ -15,13 +15,15 @@
       "./membrane.js": "./membrane.js?v=0.27",
       "./cytoskeleton.js": "./cytoskeleton.js?v=0.27",
       "./transcription-sequence.js": "./transcription-sequence.js?v=0.27.2",
-      "./rna-splicing-scene.js": "./rna-splicing-scene.js?v=0.27.8",
-      "./rna-export-scene.js": "./rna-export-scene.js?v=0.27.1",
+      "./rna-splicing-scene.js": "./rna-splicing-scene.js?v=0.27.10",
+      "./rna-export-scene.js": "./rna-export-scene.js?v=0.27.2",
+      "./rna-environment.js": "./rna-environment.js?v=0.27.2",
+      "./rna-protein-details.js": "./rna-protein-details.js?v=0.27.3",
       "./mitoinput.js": "./mitoinput.js?v=0.27.1",
       "./rna-end-models.js": "./rna-end-models.js?v=0.27.1"
     } }
   </script>
-  <script type="module" src="translation.js?v=0.27.5"></script>
+  <script type="module" src="translation.js?v=0.27.7"></script>
 </head>
 <body>
   <header class="panel">
@@ -29,6 +31,7 @@
     <div class="header-actions">
       <button id="glow" type="button" aria-label="Свечение сцены" aria-pressed="false" hidden>✧</button>
       <a id="back" href="rna-splicing.html?frame=mature">← Сплайсинг</a>
+      <button id="close-specimen" type="button" hidden>← К уроку</button>
     </div>
   </header>
 
@@ -41,17 +44,29 @@
     <div id="export-markers" hidden>
       <span data-point="nucleus">Ядро</span>
       <span data-point="cytoplasm">Цитоплазма</span>
-      <button data-point="membranes" type="button">Две мембраны</button>
-      <button data-point="pore" class="guide" type="button">Ядерная пора</button>
-      <button data-point="factor" class="guide" type="button">Белки экспорта</button>
+      <button data-point="membranes" data-select="membrane" type="button">Две мембраны</button>
+      <div class="guide specimen-marker" data-point="pore">
+        <button data-select="pore" type="button">Ядерная пора</button>
+        <button class="loupe" data-specimen="pore" type="button" aria-label="Подробнее о ядерной поре" title="Подробнее о ядерной поре"></button>
+      </div>
+      <div class="guide specimen-marker" data-point="factor">
+        <button data-select="factor" type="button">Белки экспорта</button>
+        <button class="loupe" data-specimen="factor" type="button" aria-label="Подробнее о белках экспорта" title="Подробнее о белках экспорта"></button>
+      </div>
+      <div class="guide specimen-marker" data-point="ddx19">
+        <button data-select="ddx19" type="button">DDX19B</button>
+        <button class="loupe" data-specimen="ddx19" type="button" aria-label="Подробнее о DDX19B" title="Подробнее о DDX19B"></button>
+      </div>
     </div>
+    <div id="specimen-markers" aria-hidden="true" hidden></div>
+    <div id="specimen-status" role="status" hidden></div>
     <div id="model-unavailable" hidden>
       <p>3D-сцена недоступна. Урок можно пройти по пояснениям и кнопкам.</p>
       <button id="restore-scene" type="button" hidden>Восстановить 3D-сцену</button>
     </div>
   </main>
 
-  <div class="lesson-panels">
+  <div id="lesson-panels" class="lesson-panels">
     <section class="panel" id="scene-summary" aria-labelledby="scene-title">
       <h2 id="scene-title">Зрелая мРНК в ядре</h2>
       <p id="scene-copy">При сплайсинге два интрона удалились, а три экзона соединились в одну цепь. На её концах видны кэп (5′) и поли(А)-хвост (3′).</p>
@@ -65,7 +80,14 @@
       <button id="details-toggle" type="button" aria-controls="details" aria-expanded="false">Подробнее</button>
       <div id="details" tabindex="0" hidden>
         <p id="detail-copy">Бирюзовые перемычки показывают два стыка, где соединились соседние экзоны. Число экзонов зависит от гена. Здесь мы рассматриваем ту же цепь из трёх экзонов, которую получили в финале сплайсинга.</p>
-        <p id="model-source" hidden>Белки экспорта показаны по <a href="https://www.rcsb.org/structure/1JKG" target="_blank" rel="noopener noreferrer">PDB 1JKG</a> (NXT1 и фрагмент NXF1). Оболочка, пора и движение мРНК показаны схематически.</p>
+        <div id="model-source" hidden>
+          <p>Оболочка, пора и движение мРНК в сцене показаны схематически. Экспериментальные структуры можно рассмотреть отдельно.</p>
+          <div id="specimen-links">
+            <button data-specimen="pore" type="button">Ядерная пора</button>
+            <button data-specimen="factor" type="button">NXF1–NXT1</button>
+            <button data-specimen="ddx19" type="button">DDX19B</button>
+          </div>
+        </div>
       </div>
       <div id="parts" role="group" aria-label="Участки зрелой мРНК">
         <button type="button" data-part="cap" aria-pressed="false">Кэп · 5′</button>
@@ -85,5 +107,21 @@
       <div id="lesson-controls" role="group" aria-label="Действия в уроке"></div>
     </footer>
   </div>
+  <section class="panel" id="specimen-panel" aria-labelledby="specimen-title" hidden>
+    <div id="specimen-heading">
+      <h2 id="specimen-title"></h2>
+      <button id="specimen-reset" type="button">Вернуть вид</button>
+    </div>
+    <div id="specimen-meta">
+      <ul id="specimen-legend" aria-label="Части образца"></ul>
+      <a id="specimen-source" target="_blank" rel="noopener noreferrer"></a>
+    </div>
+    <div id="specimen-copy" tabindex="0">
+      <h3>Строение</h3>
+      <p id="specimen-structure"></p>
+      <h3>Что делает</h3>
+      <ul id="specimen-functions"></ul>
+    </div>
+  </section>
 </body>
 </html>

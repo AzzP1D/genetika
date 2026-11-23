@@ -69,7 +69,7 @@ button[aria-pressed=true] {
 
 #stage { position: relative; min-height: 0; overflow: hidden; }
 canvas { display: block; touch-action: none; }
-#markers, #export-markers { position: absolute; inset: 0; pointer-events: none; }
+#markers, #export-markers, #specimen-markers { position: absolute; inset: 0; pointer-events: none; }
 .end, #selection { position: absolute; transform: translate(-50%, -50%); }
 .end { min-height: 30px; pointer-events: auto; padding-inline: 7px; color: var(--cyan); }
 .end[data-end=cap] { color: #b1efba; }
@@ -89,12 +89,53 @@ canvas { display: block; touch-action: none; }
 #export-markers button:not(:disabled) { pointer-events: auto; }
 #export-markers button:disabled { cursor: default; }
 #export-markers .guide { color: var(--acid); border-color: #81d66d; }
-#export-markers .guide::before { content: '▴'; margin-right: 4px; }
+#export-markers .specimen-marker { display: flex; min-height: 34px; gap: 3px; padding: 0 2px 0 0; }
+.specimen-marker button {
+  min-height: 33px;
+  padding: 4px 5px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  border-radius: 6px;
+}
+.specimen-marker button[data-select]::before { content: '▴'; margin-right: 4px; }
+.specimen-marker .loupe { position: relative; flex: 0 0 33px; width: 33px; border-left: 1px solid #81d66d55; }
+.loupe::before, .loupe::after { content: ''; position: absolute; display: block; }
+.loupe::before { width: 9px; height: 9px; border: 2px solid currentColor; border-radius: 50%; top: 8px; left: 8px; }
+.loupe::after { width: 7px; height: 2px; background: currentColor; transform: rotate(45deg); top: 21px; left: 18px; border-radius: 1px; }
+#specimen-markers span {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 3px 8px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  background: #081925e8;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 650;
+}
+#specimen-status { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: #06121ced; text-align: center; }
 #model-unavailable { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 8px; text-align: center; padding: 14px; background: var(--ink); }
 
 #details, #parts, #lesson-controls, #timeline-controls { grid-column: 1 / -1; }
 #details { max-height: min(17dvh, 7rem); overflow: auto; scrollbar-color: #457486 #0c2231; }
 #detail-copy { margin: 0; }
+#specimen-links { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+#specimen-links button { min-height: 34px; }
+#specimen-panel { min-width: 0; }
+#specimen-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#specimen-title { color: var(--cyan); }
+#specimen-reset { min-height: 36px; flex-shrink: 0; }
+#specimen-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px 16px; margin: 7px 0; }
+#specimen-legend { display: flex; flex-wrap: wrap; gap: 5px 14px; list-style: none; margin: 0; padding: 0; }
+#specimen-legend li { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+#specimen-legend li::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--component); }
+#specimen-copy { max-height: min(28dvh, 210px); overflow: auto; color: #bedce6; scrollbar-color: #457486 #0c2231; }
+#specimen-copy h3 { margin: 6px 0 2px; font-size: 14px; color: #e6fbff; }
+#specimen-copy p, #specimen-copy ul { max-width: 84ch; }
+#specimen-copy ul { margin: 0 0 3px; padding-left: 20px; }
+#specimen-source { color: var(--cyan); font-size: 13px; white-space: nowrap; }
 #parts { display: flex; flex-wrap: wrap; gap: 6px; }
 #lesson-controls { display: flex; flex-wrap: wrap; gap: 6px; }
 #lesson-controls button.primary { color: #051811; background: #a7f58c; border-color: #b4ff8a; }
@@ -121,6 +162,7 @@ canvas { display: block; touch-action: none; }
   #timeline-controls { grid-template-columns: 1fr; }
   #frame-navigation { justify-content: space-between; }
   #export-markers [data-point] { font-size: 12px; }
+  #specimen-copy { font-size: 14px; }
 }
 
 @media (max-height: 420px) {

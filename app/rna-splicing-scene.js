@@ -8,6 +8,7 @@ import { loadModel } from './organelles.js';
 import { neon, motes } from './style.js';
 import { bindLessonInput } from './mitoinput.js';
 import { createRnaExportScene, RNA_EXPORT_SCALE } from './rna-export-scene.js';
+import { createRnaEnvironment } from './rna-environment.js';
 import { createRNAEndModels } from './rna-end-models.js';
 import { RNA_BASES, SPLICING_INTRONS, basesAfterSplicing } from './transcription-sequence.js';
 
@@ -31,6 +32,8 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
   dust.position.z = -3.8;
   dust.material.opacity = 0.46;
   space.add(dust);
+  const environment = selectObject ? createRnaEnvironment() : null;
+  if (environment) space.add(environment.group);
 
   const ribbon = new THREE.Group();
   const proteins = new THREE.Group();
@@ -76,6 +79,7 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
   let cameraMove;
   let exportView;
   let exportFocus;
+  let specimen;
   let composer;
   let glowing = false;
   let probe;
@@ -112,7 +116,10 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
   function fit(animated = false) {
     const distance = Math.max(viewSize / camera.aspect, viewHeight) /
       (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) * 1.12;
-    const end = viewCenter.clone().add(vector(exportFocus ? distance * 0.19 : 0, 0.38, distance));
+    const offset = specimen?.viewpoint
+      ? vector(...specimen.viewpoint).normalize().multiplyScalar(distance)
+      : vector(exportFocus && !specimen ? distance * 0.19 : 0, 0.38, distance);
+    const end = viewCenter.clone().add(offset);
     controls.minDistance = Math.max(1.8, distance * 0.43);
     controls.maxDistance = Math.max(12, distance * 1.9);
     if (animated) {
@@ -254,9 +261,10 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
 
   function renderExport(time, focus) {
     if (!exportView) {
-      exportView = createRnaExportScene(() => loadModel('rna_export_factor'));
+      exportView = createRnaExportScene(loadModel);
       space.add(exportView.group);
     }
+    environment?.setCompartment(true);
     exportView.group.visible = true;
     ribbon.scale.setScalar(RNA_EXPORT_SCALE);
     ribbon.rotation.y = Math.PI;
@@ -273,12 +281,59 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
     if (!exportFocus) return;
     exportView.group.visible = false;
     exportFocus = null;
+    environment?.setCompartment(false);
     ribbon.position.set(0, 0, 0);
     ribbon.rotation.y = 0;
     ribbon.scale.setScalar(1);
     const saved = sceneLayout;
     sceneLayout = null;
     render(saved);
+  }
+
+  function showSpecimen(source, { parts, viewpoint }) {
+    const model = source.clone(true);
+    const paints = new Map(parts.map(part => [part.mesh, neon(part.color, { body: 0.7, glow: 1.3 })]));
+    const anchors = new Map();
+    model.traverse(object => {
+      if (!object.isMesh) return;
+      const part = parts.find(entry => object.name.startsWith(`GEO-${entry.mesh}`));
+      if (!part) return;
+      object.material = paints.get(part.mesh);
+      if (part.offset && !anchors.has(part.mesh)) {
+        object.geometry.computeBoundingBox();
+        anchors.set(part.mesh, { object, center: object.geometry.boundingBox.getCenter(vector()) });
+      }
+    });
+    const bounds = new THREE.Box3().setFromObject(model);
+    const size = bounds.getSize(vector());
+    model.position.sub(bounds.getCenter(vector()));
+    specimen = {
+      model, paints, anchors, viewpoint, viewSize, viewHeight, viewCenter,
+      position: camera.position.clone(), target: controls.target.clone(),
+      minDistance: controls.minDistance, maxDistance: controls.maxDistance,
+    };
+    space.add(model);
+    ribbon.visible = exportView.group.visible = environment.group.visible = false;
+    viewSize = Math.max(size.x, size.z) * 1.16;
+    viewHeight = Math.max(size.y, size.z) * 1.16;
+    viewCenter = vector(0, 0, 0);
+    fit();
+  }
+
+  function closeSpecimen() {
+    if (!specimen) return;
+    const previous = specimen;
+    specimen = null;
+    space.remove(previous.model);
+    for (const paint of previous.paints.values()) paint.dispose();
+    ribbon.visible = exportView.group.visible = environment.group.visible = true;
+    ({ viewSize, viewHeight, viewCenter } = previous);
+    cameraMove = null;
+    controls.target.copy(previous.target);
+    camera.position.copy(previous.position);
+    controls.minDistance = previous.minDistance;
+    controls.maxDistance = previous.maxDistance;
+    controls.update();
   }
 
   function getStructure() {
@@ -335,7 +390,11 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
 
   function screenPoint(where) {
     let at;
-    if (exportFocus && Object.hasOwn(exportView.anchors, where)) at = exportView.anchors[where];
+    if (specimen) {
+      const anchor = specimen.anchors.get(where);
+      if (!anchor) return null;
+      at = anchor.object.localToWorld(anchor.center.clone());
+    } else if (exportFocus && Object.hasOwn(exportView.anchors, where)) at = exportView.anchors[where];
     else if (where === 'protein') at = proteins.position;
     else if (where === 'branch') at = branch.position;
     else if (where === 'cap') at = ends.cap.position;
@@ -354,7 +413,7 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
 
   const ray = new THREE.Raycaster();
   function pick(event) {
-    if (detailsMode) return;
+    if (detailsMode || specimen) return;
     const rect = renderer.domElement.getBoundingClientRect();
     ray.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1,
       1 - (event.clientY - rect.top) / rect.height * 2), camera);
@@ -406,5 +465,8 @@ export function createSplicingScene(stage, updateLabels, selectBase, { glowButto
     } else renderer.render(space, camera);
   });
 
-  return { render, renderExport, leaveExport, screenPoint, getStructure, showStructure, resetView: () => fit(true) };
+  return {
+    render, renderExport, leaveExport, screenPoint, getStructure, showStructure,
+    getSpecimen: loadModel, showSpecimen, closeSpecimen, resetView: () => fit(true),
+  };
 }

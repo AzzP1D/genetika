@@ -27,7 +27,7 @@ function membrane(x, color) {
 
   const surface = new THREE.Mesh(
     new THREE.ExtrudeGeometry(outline, { depth: 0.12, curveSegments: 22, bevelEnabled: false }),
-    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.31, depthWrite: false, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.42, depthWrite: false, side: THREE.DoubleSide }),
   );
   surface.position.x = x - 0.06;
   surface.rotation.y = Math.PI / 2;
@@ -37,13 +37,13 @@ function membrane(x, color) {
   return surface;
 }
 
-export function createRnaExportScene(loadFactor) {
+export function createRnaExportScene(loadAsset) {
   const group = new THREE.Group();
   const membranes = [membrane(-0.36, 0x4fa9ce), membrane(0.36, 0x6889c9)];
   group.add(...membranes);
 
-  const porePaint = neon(0x73cbbe, { body: 0.73, glow: 1.35 });
-  const rimPaint = neon(0x9bdfc2, { body: 0.83, glow: 1.2 });
+  const porePaint = neon(0x309c96, { body: 0.73, glow: 1.35 });
+  const rimPaint = neon(0x52b391, { body: 0.83, glow: 1.2 });
   const rings = [-0.57, 0, 0.57].map((x, i) => {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(i === 1 ? 0.65 : 0.78, 0.115, 10, 40), porePaint);
     ring.position.x = x;
@@ -75,7 +75,7 @@ export function createRnaExportScene(loadFactor) {
   const fallback = new THREE.Mesh(new THREE.IcosahedronGeometry(0.24, 2), neon(0xf8c679, { body: 0.78 }));
   factor.add(fallback);
   group.add(factor);
-  loadFactor().then(source => {
+  loadAsset('rna_export_factor').then(source => {
     const model = source.clone(true);
     const bounds = new THREE.Box3().setFromObject(model);
     const size = bounds.getSize(new THREE.Vector3());
@@ -91,12 +91,22 @@ export function createRnaExportScene(loadFactor) {
     fallback.visible = false;
   }).catch(error => console.warn('1JKG:', error));
 
+  const enzyme = new THREE.Group();
+  const enzymePaint = neon(0xe6608c, { body: 0.74, glow: 1.2 });
+  const enzymePlaceholder = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 2), enzymePaint);
+  enzyme.add(enzymePlaceholder);
+  enzyme.position.set(1.2, -0.51, 0.49);
+  enzyme.visible = false;
+  group.add(enzyme);
+  let enzymeRequested = false;
+
   const anchors = {
     nucleus: new THREE.Vector3(-3, 1.56, 0.75),
     cytoplasm: new THREE.Vector3(3, 1.56, 0.75),
     pore: new THREE.Vector3(0, -0.40, 0.85),
     membranes: new THREE.Vector3(0, 1.55, 1.55),
     factor: factor.position,
+    ddx19: enzyme.position,
   };
 
   function update(time, rna, cap) {
@@ -105,6 +115,18 @@ export function createRnaExportScene(loadFactor) {
     const capPosition = cap.getWorldPosition(new THREE.Vector3());
     factor.position.copy(capPosition).add(new THREE.Vector3(-0.35 - 1.2 * release, 0.29 + 0.75 * release, 0.07));
     factor.rotation.set(0.13, 0.38 + release * 1.2, release * 0.58);
+    enzyme.visible = time >= EXPORT_FRAMES[3];
+    if (enzyme.visible && !enzymeRequested) {
+      enzymeRequested = true;
+      loadAsset('ddx19_specimen').then(source => {
+        const mesh = source.getObjectByName('GEO-DDX19B')?.clone();
+        if (!mesh) return;
+        mesh.material = enzymePaint;
+        mesh.scale.setScalar(0.26);
+        enzymePlaceholder.visible = false;
+        enzyme.add(mesh);
+      }).catch(error => console.warn('3G0H:', error));
+    }
   }
 
   return { group, anchors, update, targets: [passage, ...rings, ...membranes] };

@@ -1,5 +1,6 @@
 import { createSplicingScene } from './rna-splicing-scene.js';
 import { EXPORT_FRAMES } from './rna-export-scene.js';
+import { PROTEIN_DETAILS } from './rna-protein-details.js';
 import { RNA_BASES, SPLICING_INTRONS, basesAfterSplicing } from './transcription-sequence.js';
 
 const byId = id => document.getElementById(id);
@@ -88,6 +89,7 @@ let shownFrame = -1;
 let savedHalfSecond = -1;
 let playButton;
 let checkButton;
+let inspection;
 
 function saveCheckpoint() {
   try {
@@ -128,6 +130,14 @@ function placeMarker(marker, point, offset) {
 }
 
 function updateMarkers() {
+  if (inspection) {
+    if (inspection.ready) {
+      for (const marker of byId('specimen-markers').children) {
+        placeMarker(marker, marker.dataset.mesh, Number(marker.dataset.offset));
+      }
+    }
+    return;
+  }
   if (phase === 'intro') {
     for (const button of endButtons) placeMarker(button, button.dataset.end, -25);
     if (selectedPoint !== undefined) placeMarker(selection, selectedPoint, 0);
@@ -137,11 +147,13 @@ function updateMarkers() {
     const point = marker.dataset.point;
     if ((point === 'pore' && phase === 'find' && !hintShown) ||
         (point === 'factor' && (phase === 'find' || time >= duration)) ||
+        (point === 'ddx19' && time < EXPORT_FRAMES[3]) ||
         (point === 'membranes' && phase !== 'ready' && phase !== 'find')) {
       marker.hidden = true;
       continue;
     }
-    placeMarker(marker, point, point === 'pore' ? 18 : point === 'factor' ? -27 : 0);
+    const offsets = { pore: 18, factor: -27, ddx19: -30 };
+    placeMarker(marker, point, offsets[point] ?? 0);
   }
 }
 
@@ -152,8 +164,8 @@ for (const button of partButtons) {
   button.onclick = () => inspect(part, index);
 }
 for (const button of endButtons) button.onclick = () => inspect(button.dataset.end);
-for (const button of exportMarkers.filter(element => element.tagName === 'BUTTON')) {
-  button.onclick = () => selectExportObject(button.dataset.point === 'membranes' ? 'membrane' : button.dataset.point);
+for (const button of byId('export-markers').querySelectorAll('[data-select]')) {
+  button.onclick = () => selectExportObject(button.dataset.select);
 }
 toggle.onclick = () => {
   details.hidden = !details.hidden;
@@ -169,6 +181,88 @@ function action(label, run, primary = false) {
   button.onclick = run;
   return button;
 }
+
+function colorHex(color) {
+  return `#${color.toString(16).padStart(6, '0')}`;
+}
+
+function populateSpecimen(specimen) {
+  byId('specimen-title').textContent = specimen.title;
+  byId('specimen-structure').textContent = specimen.structure;
+  const source = byId('specimen-source');
+  source.href = `https://www.rcsb.org/structure/${specimen.pdb}`;
+  source.textContent = `RCSB PDB ${specimen.pdb}`;
+  byId('specimen-functions').replaceChildren(...specimen.functions.map(text => {
+    const item = document.createElement('li');
+    item.textContent = text;
+    return item;
+  }));
+  byId('specimen-legend').replaceChildren(...specimen.parts.map(part => {
+    const item = document.createElement('li');
+    item.textContent = part.label;
+    item.style.setProperty('--component', colorHex(part.color));
+    return item;
+  }));
+  byId('specimen-markers').replaceChildren(...specimen.parts.filter(part => part.offset).map(part => {
+    const marker = document.createElement('span');
+    marker.textContent = part.label;
+    marker.style.color = colorHex(part.color);
+    marker.dataset.mesh = part.mesh;
+    marker.dataset.offset = part.offset;
+    return marker;
+  }));
+  byId('specimen-copy').scrollTop = 0;
+}
+
+async function openSpecimen(key, trigger) {
+  if (inspection) return;
+  pause();
+  const specimen = PROTEIN_DETAILS[key];
+  const session = { trigger, stageLabel: stage.getAttribute('aria-label'), ready: false };
+  inspection = session;
+  stage.setAttribute('aria-label', `Трёхмерный образец. ${specimen.title}`);
+  populateSpecimen(specimen);
+  byId('lesson-panels').hidden = byId('export-markers').hidden = byId('back').hidden = true;
+  byId('close-specimen').hidden = byId('specimen-panel').hidden = false;
+  byId('specimen-reset').hidden = true;
+  byId('close-specimen').focus({ preventScroll: true });
+  const status = byId('specimen-status');
+  status.textContent = 'Загружается 3D-образец…';
+  status.hidden = false;
+
+  try {
+    if (!scene) throw new Error('WebGL unavailable');
+    const model = await scene.getSpecimen(specimen.asset);
+    if (inspection !== session) return;
+    scene.showSpecimen(model, specimen);
+    session.ready = true;
+    byId('specimen-markers').hidden = byId('specimen-reset').hidden = false;
+    status.hidden = true;
+  } catch {
+    if (inspection === session) status.textContent = '3D-образец недоступен. Описание и источник доступны ниже.';
+  }
+}
+
+function closeSpecimen() {
+  if (!inspection) return;
+  const { trigger, ready, stageLabel } = inspection;
+  inspection = null;
+  if (ready) scene?.closeSpecimen();
+  stage.setAttribute('aria-label', stageLabel);
+  for (const id of ['specimen-panel', 'specimen-markers', 'specimen-status', 'close-specimen']) byId(id).hidden = true;
+  byId('lesson-panels').hidden = byId('back').hidden = false;
+  byId('export-markers').hidden = !scene;
+  trigger.focus({ preventScroll: true });
+}
+
+for (const button of document.querySelectorAll('[data-specimen]')) {
+  button.onclick = () => openSpecimen(button.dataset.specimen, button);
+}
+byId('close-specimen').onclick = closeSpecimen;
+byId('specimen-reset').onclick = () => scene?.resetView();
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && inspection) closeSpecimen();
+});
 
 function showHint(wrong = false) {
   hintShown = true;
@@ -186,6 +280,7 @@ function selectExportObject(object) {
     if (object === 'membrane') showNote('Две мембраны', 'Они отделяют ядро от цитоплазмы.', membraneExplanation);
     if (object === 'factor') showNote('Белки экспорта', 'Золотистая модель показывает транспортный фактор.', frames[1][2]);
     if (object === 'pore') showNote('Ядерная пора', 'Через этот проход мРНК выходит в цитоплазму.', membraneExplanation);
+    if (object === 'ddx19') showNote('Фермент DDX19B', 'Помогает снять транспортный фактор с мРНК.', frames[3][2]);
   }
 }
 
@@ -235,7 +330,9 @@ function showLesson() {
   byId('parts').hidden = !intro;
   byId('markers').hidden = !intro || !scene;
   byId('export-markers').hidden = intro || !scene;
-  byId('export-markers').querySelector('[data-point=pore]').disabled = phase === 'quiz' || phase === 'done';
+  for (const button of byId('export-markers').querySelectorAll('[data-select]')) {
+    button.disabled = phase === 'quiz' || phase === 'done';
+  }
   byId('model-source').hidden = intro;
   byId('timeline-controls').hidden = phase !== 'watch';
   stage.setAttribute('aria-label', intro ? 'Трёхмерная модель зрелой мРНК' : 'МРНК у разреза ядерной оболочки');
@@ -343,6 +440,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && pla
 
 function onContextLost() {
   scene = null;
+  closeSpecimen();
   pause();
   byId('glow').hidden = true;
   byId('model-unavailable').hidden = false;
