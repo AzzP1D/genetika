@@ -443,6 +443,13 @@ function summary(visible) {
   }), ...endLabels());
   actions(['До сплайсинга', () => summary(0)], ['После сплайсинга', () => summary(completed)],
     ['Повторить сплайсинг', () => { completed = 0; overview(); }], modelLink);
+  if (visible) {
+    const link = document.createElement('a');
+    link.href = 'translation.html';
+    link.className = 'primary';
+    link.textContent = 'К трансляции →';
+    byId('actions').append(link);
+  }
   for (const [i, button] of Array.from(byId('actions').children).slice(0, 2).entries()) {
     button.setAttribute('aria-pressed', String(i === (visible ? 1 : 0)));
   }
@@ -507,4 +514,9 @@ byId('details-toggle').onclick = () => {
   button.setAttribute('aria-expanded', String(!panel.hidden));
 };
 
-overview();
+if (new URLSearchParams(location.search).get('frame') === 'mature') {
+  completed = SPLICING_INTRONS.length;
+  summary(completed);
+} else {
+  overview();
+}

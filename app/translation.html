@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Трансляция · Генетика</title>
+  <link rel="stylesheet" href="translation.css?v=0.27.1">
+  <script type="importmap">
+    { "imports": {
+      "three": "./lib/three.module.js",
+      "three/addons/": "./lib/addons/",
+      "./style.js": "./style.js?v=0.27",
+      "./organelles.js": "./organelles.js?v=0.27.1",
+      "./membrane.js": "./membrane.js?v=0.27",
+      "./cytoskeleton.js": "./cytoskeleton.js?v=0.27",
+      "./transcription-sequence.js": "./transcription-sequence.js?v=0.27.2",
+      "./rna-splicing-scene.js": "./rna-splicing-scene.js?v=0.27.6",
+      "./rna-end-models.js": "./rna-end-models.js?v=0.27.1"
+    } }
+  </script>
+  <script type="module" src="translation.js?v=0.27.1"></script>
+</head>
+<body>
+  <header>
+    <div><h1>Трансляция</h1><p>Зрелая мРНК в ядре</p></div>
+    <a href="rna-splicing.html?frame=mature">← Сплайсинг</a>
+  </header>
+
+  <main id="stage" aria-label="Трёхмерная модель зрелой мРНК">
+    <div id="markers" hidden>
+      <button class="end" type="button" data-end="cap" aria-label="Кэп на 5′-конце">5′</button>
+      <button class="end" type="button" data-end="tail" aria-label="Поли(А)-хвост на 3′-конце">3′</button>
+      <span id="selection" aria-hidden="true" hidden></span>
+    </div>
+    <p id="model-unavailable" hidden>3D-модель недоступна. Выбери участок мРНК по кнопкам ниже.</p>
+  </main>
+
+  <footer aria-label="Задание и пояснение">
+    <div id="note-area" aria-live="polite">
+      <h2 id="note-title">Рассмотри зрелую мРНК</h2>
+      <p id="note">Поверни молекулу или выбери участок. Найди кэп, три соединённых экзона и поли(А)-хвост.</p>
+    </div>
+    <button id="details-toggle" type="button" aria-controls="details" aria-expanded="false">Подробнее</button>
+    <div id="details" tabindex="0" hidden>
+      <p id="detail-copy">Это та же молекула из финала сплайсинга. Два интрона удалены, а три экзона соединены. Кэп и поли(А)-хвост остались на концах. мРНК ещё в ядре. Для синтеза полипептида ей предстоит попасть в цитоплазму, где работают рибосомы.</p>
+    </div>
+    <div id="parts" role="group" aria-label="Участки зрелой мРНК">
+      <button type="button" data-part="cap" aria-pressed="false">Кэп · 5′</button>
+      <button type="button" data-part="e1" aria-pressed="false">Экзон 1</button>
+      <button type="button" data-part="e2" aria-pressed="false">Экзон 2</button>
+      <button type="button" data-part="e3" aria-pressed="false">Экзон 3</button>
+      <button type="button" data-part="tail" aria-pressed="false">Поли(А) · 3′</button>
+    </div>
+  </footer>
+</body>
+</html>
