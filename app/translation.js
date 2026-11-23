@@ -1,4 +1,5 @@
 import { createSplicingScene } from './rna-splicing-scene.js';
+import { EXPORT_FRAMES } from './rna-export-scene.js';
 import { RNA_BASES, SPLICING_INTRONS, basesAfterSplicing } from './transcription-sequence.js';
 
 const byId = id => document.getElementById(id);
@@ -39,17 +40,73 @@ const completed = SPLICING_INTRONS.length;
 const matureBases = basesAfterSplicing(completed);
 const partButtons = [...byId('parts').querySelectorAll('button')];
 const endButtons = [...byId('markers').querySelectorAll('button')];
+const exportMarkers = [...byId('export-markers').children];
 const stage = byId('stage');
 const selection = byId('selection');
+const details = byId('details');
+const toggle = byId('details-toggle');
+const timeline = byId('timeline');
+const duration = EXPORT_FRAMES.at(-1);
+const progressKey = 'gen-translation-export';
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const introCopy = ['note-title', 'note', 'detail-copy'].map(id => byId(id).textContent);
+const introSummary = [byId('scene-title').textContent, byId('scene-copy').textContent];
+const exportSummary = [
+  'Выход мРНК из ядра',
+  'Та же зрелая мРНК пройдёт из ядра через ядерную пору в цитоплазму.',
+];
+const arrived = 'Та же зрелая мРНК прошла через ядерную пору и теперь находится в цитоплазме.';
+const membraneExplanation = 'Ядерная оболочка состоит из двух мембран. В месте поры они соединяются, а белковый комплекс образует проход между ядром и цитоплазмой.';
+const frames = [
+  ['До поры', 'Транспортный фактор уже связан с мРНК.', 'Белки, связанные со зрелой мРНК в ядре, помогают ей подготовиться к выходу. Золотистая модель показывает часть транспортного фактора NXF1–NXT1.'],
+  ['У входа в пору', 'Комплекс мРНК и белков подходит к поре со стороны ядра.', 'Транспортный фактор взаимодействует с белками ядерной поры и помогает мРНК пройти через неё.'],
+  ['В поре', 'Часть цепи уже снаружи, а часть ещё в ядре.', 'Следи за кэпом и голубым поли(А)-хвостом. В учебном разрезе цепь вытянута, чтобы её части были видны. В клетке мРНК проходит через пору в комплексе с белками.'],
+  ['На стороне цитоплазмы', 'Цепь вышла целиком. Транспортный фактор начинает отделяться.', 'На внешней стороне поры дополнительные белки, в том числе DDX19, помогают снять транспортный фактор с мРНК.'],
+  ['мРНК вышла', 'Кэп, три экзона и поли(А)-хвост теперь в цитоплазме.', 'Транспортный фактор отделился от мРНК. Та же цепь теперь находится в цитоплазме, где работают рибосомы.'],
+];
+
+function loadCheckpoint() {
+  const stages = ['find', 'ready', 'watch', 'quiz', 'done'];
+  try {
+    const saved = JSON.parse(localStorage.getItem(progressKey));
+    if (stages.includes(saved?.phase)) return {
+      phase: saved.phase,
+      time: Number.isFinite(saved.time) ? Math.max(0, Math.min(duration, saved.time)) : 0,
+    };
+  } catch { /* resume is optional when storage is unavailable */ }
+  return { phase: 'intro', time: 0 };
+}
+
+let { phase, time } = loadCheckpoint();
 let scene;
 let selectedPoint;
+let hintShown = false;
+let request;
+let playing = false;
+let lastUpdate;
+let shownFrame = -1;
+let savedHalfSecond = -1;
+let playButton;
+let checkButton;
+
+function saveCheckpoint() {
+  try {
+    if (phase === 'intro') localStorage.removeItem(progressKey);
+    else localStorage.setItem(progressKey, JSON.stringify({ phase, time }));
+  } catch { /* the lesson remains available without storage */ }
+}
+
+function showNote(title, note, detail, error = false) {
+  byId('note-title').textContent = title;
+  const copy = byId('note');
+  copy.textContent = note;
+  copy.classList.toggle('feedback-error', error);
+  byId('detail-copy').textContent = detail;
+  details.scrollTop = 0;
+}
 
 function inspect(part, point = part) {
-  const [title, note, detail] = parts[part];
-  byId('note-title').textContent = title;
-  byId('note').textContent = note;
-  byId('detail-copy').textContent = detail;
-  byId('details').scrollTop = 0;
+  showNote(...parts[part]);
   for (const button of partButtons) {
     button.setAttribute('aria-pressed', String(button.dataset.part === part));
   }
@@ -66,12 +123,26 @@ function placeMarker(marker, point, offset) {
   marker.hidden = false;
   const half = marker.offsetWidth / 2;
   marker.style.left = `${Math.max(half, Math.min(stage.clientWidth - half, x))}px`;
-  marker.style.top = `${Math.max(15, Math.min(stage.clientHeight - 15, y + offset))}px`;
+  const height = marker.offsetHeight / 2;
+  marker.style.top = `${Math.max(height, Math.min(stage.clientHeight - height, y + offset))}px`;
 }
 
 function updateMarkers() {
-  for (const button of endButtons) placeMarker(button, button.dataset.end, -25);
-  if (selectedPoint !== undefined) placeMarker(selection, selectedPoint, 0);
+  if (phase === 'intro') {
+    for (const button of endButtons) placeMarker(button, button.dataset.end, -25);
+    if (selectedPoint !== undefined) placeMarker(selection, selectedPoint, 0);
+    return;
+  }
+  for (const marker of exportMarkers) {
+    const point = marker.dataset.point;
+    if ((point === 'pore' && phase === 'find' && !hintShown) ||
+        (point === 'factor' && (phase === 'find' || time >= duration)) ||
+        (point === 'membranes' && phase !== 'ready' && phase !== 'find')) {
+      marker.hidden = true;
+      continue;
+    }
+    placeMarker(marker, point, point === 'pore' ? 18 : point === 'factor' ? -27 : 0);
+  }
 }
 
 for (const button of partButtons) {
@@ -81,20 +152,211 @@ for (const button of partButtons) {
   button.onclick = () => inspect(part, index);
 }
 for (const button of endButtons) button.onclick = () => inspect(button.dataset.end);
-
-const details = byId('details');
-const toggle = byId('details-toggle');
+for (const button of exportMarkers.filter(element => element.tagName === 'BUTTON')) {
+  button.onclick = () => selectExportObject(button.dataset.point === 'membranes' ? 'membrane' : button.dataset.point);
+}
 toggle.onclick = () => {
   details.hidden = !details.hidden;
   toggle.setAttribute('aria-expanded', String(!details.hidden));
   toggle.textContent = details.hidden ? 'Подробнее' : 'Свернуть';
 };
 
+function action(label, run, primary = false) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = label;
+  button.classList.toggle('primary', primary);
+  button.onclick = run;
+  return button;
+}
+
+function showHint(wrong = false) {
+  hintShown = true;
+  showNote('Где проходит мРНК?', wrong
+    ? 'Ты выбрал мембрану. Найди проход между ядром и цитоплазмой.'
+    : 'Поищи зелёный указатель у прохода в оболочке.', membraneExplanation, wrong);
+}
+
+function selectExportObject(object) {
+  if (phase === 'find') {
+    if (object === 'pore') go('ready');
+    else if (object === 'membrane') showHint(true);
+  } else if (phase === 'ready' || (phase === 'watch' && object)) {
+    if (phase === 'watch') { pause(); shownFrame = -1; }
+    if (object === 'membrane') showNote('Две мембраны', 'Они отделяют ядро от цитоплазмы.', membraneExplanation);
+    if (object === 'factor') showNote('Белки экспорта', 'Золотистая модель показывает транспортный фактор.', frames[1][2]);
+    if (object === 'pore') showNote('Ядерная пора', 'Через этот проход мРНК выходит в цитоплазму.', membraneExplanation);
+  }
+}
+
+function startFilm() {
+  time = 0;
+  go('watch');
+  if (!reducedMotion) play();
+}
+
+function answer(hint) {
+  if (hint) {
+    showNote('Вспомни путь цепи', hint, membraneExplanation, true);
+    return;
+  }
+  window.Progress.markDone('transl-export');
+  go('done');
+}
+
+function showActions() {
+  const resetView = () => scene?.resetView();
+  const buttonResetView = scene && action('Вернуть вид', resetView);
+  const actions = {
+    intro: () => [action('К ядерной поре →', () => go('find'), true), buttonResetView],
+    find: () => scene ? [action('Подсказка', () => showHint()), buttonResetView] : [
+      action('Ядерная пора', () => selectExportObject('pore')),
+      action('Участок оболочки', () => selectExportObject('membrane')),
+    ],
+    ready: () => [action('Показать выход', startFilm, true), buttonResetView],
+    watch: () => {
+      playButton = action('Продолжить', () => playing ? pause() : play(), true);
+      checkButton = action('Дальше →', () => go('quiz'));
+      return [playButton, checkButton, buttonResetView];
+    },
+    quiz: () => [
+      action('Через ядерную пору', () => answer()),
+      action('Через участок мембраны', () => answer('В оболочке есть белковый проход. Вспомни, как он называется.')),
+      action('Через ядрышко', () => answer('Ядрышко находится внутри ядра. Посмотри, через что цепь пересекла оболочку.')),
+    ],
+    done: () => [action('Повторить выход', () => { time = 0; go('watch'); }, true),
+      action('Пройти с начала', () => go('intro'))],
+  }[phase]();
+  byId('lesson-controls').replaceChildren(...actions.filter(Boolean));
+}
+
+function showLesson() {
+  const intro = phase === 'intro';
+  byId('parts').hidden = !intro;
+  byId('markers').hidden = !intro || !scene;
+  byId('export-markers').hidden = intro || !scene;
+  byId('export-markers').querySelector('[data-point=pore]').disabled = phase === 'quiz' || phase === 'done';
+  byId('model-source').hidden = intro;
+  byId('timeline-controls').hidden = phase !== 'watch';
+  stage.setAttribute('aria-label', intro ? 'Трёхмерная модель зрелой мРНК' : 'МРНК у разреза ядерной оболочки');
+  const [title, copy] = intro ? introSummary : exportSummary;
+  byId('scene-title').textContent = title;
+  byId('scene-copy').textContent = phase === 'quiz' || phase === 'done' ? arrived : copy;
+  showActions();
+
+  if (intro) {
+    scene?.leaveExport();
+    selectedPoint = undefined;
+    selection.hidden = true;
+    partButtons.forEach(button => button.setAttribute('aria-pressed', 'false'));
+    showNote(...introCopy);
+  } else if (phase === 'find') {
+    scene?.renderExport(0, 'find');
+    showNote('Найди выход из ядра', scene
+      ? 'Поверни модель и нажми на ядерную пору.'
+      : 'Через какую часть ядерной оболочки выйдет мРНК?', membraneExplanation);
+  } else if (phase === 'ready') {
+    scene?.renderExport(0, 'ready');
+    showNote('Пора найдена', 'Рядом с мРНК видны белки экспорта. Посмотри, как они помогают ей пройти через пору.', frames[0][2]);
+  } else if (phase === 'watch') {
+    showFrame();
+  } else {
+    scene?.renderExport(duration, 'ready');
+    if (phase === 'quiz') showNote('Как мРНК попала в цитоплазму?', 'Выбери путь, который ты увидел на модели.', membraneExplanation);
+    else showNote('Этап пройден', 'Зрелая мРНК вышла из ядра через ядерную пору с помощью белков экспорта.', frames.at(-1)[2]);
+  }
+}
+
+function go(next) {
+  pause();
+  phase = next;
+  if (next === 'intro' || next === 'find') time = 0;
+  if (next === 'quiz' || next === 'done') time = duration;
+  hintShown = false;
+  shownFrame = -1;
+  showLesson();
+  saveCheckpoint();
+  byId('lesson-controls').querySelector('button')?.focus({ preventScroll: true });
+}
+
+function showFrame() {
+  scene?.renderExport(time, 'ready');
+  const index = EXPORT_FRAMES.findLastIndex(frame => frame <= time + 0.001);
+  timeline.value = time;
+  byId('previous-frame').disabled = time === 0;
+  byId('next-frame').disabled = time >= duration;
+  if (index !== shownFrame) {
+    shownFrame = index;
+    const label = `${index + 1} из ${frames.length} · ${frames[index][0]}`;
+    byId('frame-name').textContent = label;
+    timeline.setAttribute('aria-valuetext', label);
+    byId('scene-copy').textContent = time >= duration ? arrived : exportSummary[1];
+    showNote(...frames[index]);
+  }
+  playButton.textContent = playing ? 'Пауза' : time >= duration ? 'Повторить' : 'Продолжить';
+  checkButton.disabled = time < duration;
+  checkButton.classList.toggle('primary', time >= duration);
+  playButton.classList.toggle('primary', time < duration);
+}
+
+function pause() {
+  cancelAnimationFrame(request);
+  playing = false;
+  if (phase === 'watch' && playButton) showFrame();
+  saveCheckpoint();
+}
+
+function play() {
+  if (playing) return;
+  if (time >= duration) time = 0;
+  lastUpdate = null;
+  playing = true;
+  showFrame();
+  request = requestAnimationFrame(tick);
+}
+
+function tick(now) {
+  time = Math.min(duration, time + (lastUpdate === null ? 0 : Math.min(0.075, (now - lastUpdate) / 1000)));
+  lastUpdate = now;
+  if (time >= duration) return pause();
+  showFrame();
+  const halfSecond = Math.floor(time * 2);
+  if (savedHalfSecond !== halfSecond) {
+    savedHalfSecond = halfSecond;
+    saveCheckpoint();
+  }
+  request = requestAnimationFrame(tick);
+}
+
+function seek(point) {
+  time = point;
+  pause();
+}
+
+timeline.max = duration;
+timeline.oninput = () => seek(Number(timeline.value));
+byId('previous-frame').onclick = () => seek(EXPORT_FRAMES.findLast(frame => frame < time - 0.001) ?? 0);
+byId('next-frame').onclick = () => seek(EXPORT_FRAMES.find(frame => frame > time + 0.001) ?? duration);
+byId('restore-scene').onclick = () => location.reload();
+window.addEventListener('pagehide', saveCheckpoint);
+document.addEventListener('visibilitychange', () => { if (document.hidden && playing) pause(); });
+
+function onContextLost() {
+  scene = null;
+  pause();
+  byId('glow').hidden = true;
+  byId('model-unavailable').hidden = false;
+  byId('restore-scene').hidden = false;
+  showLesson();
+}
+
 try {
-  scene = createSplicingScene(stage, updateMarkers, index => inspect(RNA_BASES[index].part, index));
+  scene = createSplicingScene(stage, updateMarkers, index => inspect(RNA_BASES[index].part, index), {
+    glowButton: byId('glow'), selectObject: selectExportObject, onContextLost,
+  });
   scene.render({ completed, intron: null, progress: 0, marked: [] });
-  byId('markers').hidden = false;
 } catch (error) {
   byId('model-unavailable').hidden = false;
   console.error(error);
 }
+showLesson();

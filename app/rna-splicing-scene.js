@@ -1,7 +1,13 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { loadModel } from './organelles.js';
 import { neon, motes } from './style.js';
+import { bindLessonInput } from './mitoinput.js';
+import { createRnaExportScene, RNA_EXPORT_SCALE } from './rna-export-scene.js';
 import { createRNAEndModels } from './rna-end-models.js';
 import { RNA_BASES, SPLICING_INTRONS, basesAfterSplicing } from './transcription-sequence.js';
 
@@ -10,7 +16,7 @@ const vector = (x, y, z) => new THREE.Vector3(x, y, z);
 const ease = THREE.MathUtils.smoothstep;
 export const REACTION = { loop: 1.48, join: 2.53 };
 
-export function createSplicingScene(stage, updateLabels, selectBase) {
+export function createSplicingScene(stage, updateLabels, selectBase, { glowButton, selectObject, onContextLost } = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   stage.prepend(renderer.domElement);
@@ -19,7 +25,7 @@ export function createSplicingScene(stage, updateLabels, selectBase) {
   const camera = new THREE.PerspectiveCamera(43, 1, 0.06, 95);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
-  controls.enablePan = false;
+  controls.enablePan = Boolean(selectObject);
   controls.dampingFactor = 0.09;
   const dust = motes(78, 7.8, 0x456f93);
   dust.position.z = -3.8;
@@ -68,11 +74,45 @@ export function createSplicingScene(stage, updateLabels, selectBase) {
   let viewHeight = 3;
   let viewCenter = vector(0, 0.03, 0);
   let cameraMove;
+  let exportView;
+  let exportFocus;
+  let composer;
+  let glowing = false;
+  let probe;
+
+  function showGlow() {
+    glowButton.textContent = glowing ? '✦' : '✧';
+    glowButton.setAttribute('aria-pressed', String(glowing));
+    glowButton.title = glowing ? 'Выключить свечение' : 'Включить свечение';
+  }
+
+  if (glowButton) {
+    const gl = renderer.getContext();
+    const supported = gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float');
+    if (supported) {
+      try { glowing = localStorage.getItem('gen-glow') !== 'off'; } catch { glowing = true; }
+      glowButton.hidden = false;
+      showGlow();
+      if (glowing) probe = { start: performance.now(), frames: 0 };
+      glowButton.onclick = () => {
+        glowing = !glowing;
+        probe = null;
+        try { localStorage.setItem('gen-glow', glowing ? 'on' : 'off'); } catch { /* preference unavailable */ }
+        showGlow();
+      };
+    }
+  }
+
+  if (onContextLost) renderer.domElement.addEventListener('webglcontextlost', event => {
+    event.preventDefault();
+    renderer.setAnimationLoop(null);
+    onContextLost();
+  });
 
   function fit(animated = false) {
     const distance = Math.max(viewSize / camera.aspect, viewHeight) /
       (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) * 1.12;
-    const end = viewCenter.clone().add(vector(0, 0.38, distance));
+    const end = viewCenter.clone().add(vector(exportFocus ? distance * 0.19 : 0, 0.38, distance));
     controls.minDistance = Math.max(1.8, distance * 0.43);
     controls.maxDistance = Math.max(12, distance * 1.9);
     if (animated) {
@@ -91,7 +131,8 @@ export function createSplicingScene(stage, updateLabels, selectBase) {
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     renderer.setSize(w, h);
-    fit();
+    composer?.setSize(w, h);
+    fit(Boolean(cameraMove && exportFocus));
   }).observe(stage);
   fit();
 
@@ -211,6 +252,35 @@ export function createSplicingScene(stage, updateLabels, selectBase) {
     }
   }
 
+  function renderExport(time, focus) {
+    if (!exportView) {
+      exportView = createRnaExportScene(() => loadModel('rna_export_factor'));
+      space.add(exportView.group);
+    }
+    exportView.group.visible = true;
+    ribbon.scale.setScalar(RNA_EXPORT_SCALE);
+    ribbon.rotation.y = Math.PI;
+    exportView.update(time, ribbon, ends.cap);
+    if (exportFocus === focus) return;
+    exportFocus = focus;
+    viewSize = focus === 'find' ? 15.8 : 13.4;
+    viewHeight = focus === 'find' ? 6.7 : 5.1;
+    viewCenter = vector(focus === 'find' ? -0.55 : 0, 0.11, 0);
+    fit(!matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  function leaveExport() {
+    if (!exportFocus) return;
+    exportView.group.visible = false;
+    exportFocus = null;
+    ribbon.position.set(0, 0, 0);
+    ribbon.rotation.y = 0;
+    ribbon.scale.setScalar(1);
+    const saved = sceneLayout;
+    sceneLayout = null;
+    render(saved);
+  }
+
   function getStructure() {
     structurePromise ??= loadModel('spliceosome-5yzg').then(source => {
       const model = source.clone(true);
@@ -265,7 +335,8 @@ export function createSplicingScene(stage, updateLabels, selectBase) {
 
   function screenPoint(where) {
     let at;
-    if (where === 'protein') at = proteins.position;
+    if (exportFocus && Object.hasOwn(exportView.anchors, where)) at = exportView.anchors[where];
+    else if (where === 'protein') at = proteins.position;
     else if (where === 'branch') at = branch.position;
     else if (where === 'cap') at = ends.cap.position;
     else if (where === 'tail') at = ends.tailMidpoint.position;
@@ -275,21 +346,35 @@ export function createSplicingScene(stage, updateLabels, selectBase) {
       at = a.clone().lerp(b, 0.5);
     }
     if (!at) return null;
-    const point = at.clone().project(camera);
-    return point.z > 1 ? null : [(1 + point.x) * 0.5 * stage.clientWidth, (1 - point.y) * 0.5 * stage.clientHeight];
+    const world = at.clone();
+    if (exportFocus && (typeof where === 'number' || where === 'cap' || where === 'tail')) ribbon.localToWorld(world);
+    const point = world.project(camera);
+    return point.z < -1 || point.z > 1 ? null : [(1 + point.x) * 0.5 * stage.clientWidth, (1 - point.y) * 0.5 * stage.clientHeight];
   }
 
   const ray = new THREE.Raycaster();
-  let down;
-  renderer.domElement.addEventListener('pointerdown', event => { down = [event.clientX, event.clientY]; });
-  renderer.domElement.addEventListener('pointerup', event => {
-    if (!down || detailsMode || Math.hypot(event.clientX - down[0], event.clientY - down[1]) > 8) return;
+  function pick(event) {
+    if (detailsMode) return;
     const rect = renderer.domElement.getBoundingClientRect();
     ray.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1,
       1 - (event.clientY - rect.top) / rect.height * 2), camera);
+    if (exportFocus) {
+      selectObject(ray.intersectObjects(exportView.targets)[0]?.object.userData.object);
+      return;
+    }
     const hit = ray.intersectObjects(beads.filter(bead => bead.visible))[0];
     if (hit) selectBase(hit.object.userData.base);
-  });
+  }
+  if (selectObject) {
+    bindLessonInput(renderer.domElement, controls, { drag: () => false, tap: pick });
+    controls.addEventListener('start', () => { cameraMove = null; });
+  } else {
+    let down;
+    renderer.domElement.addEventListener('pointerdown', event => { down = [event.clientX, event.clientY]; });
+    renderer.domElement.addEventListener('pointerup', event => {
+      if (down && Math.hypot(event.clientX - down[0], event.clientY - down[1]) <= 8) pick(event);
+    });
+  }
 
   renderer.setAnimationLoop(now => {
     if (cameraMove) {
@@ -302,8 +387,24 @@ export function createSplicingScene(stage, updateLabels, selectBase) {
     controls.update();
     camera.updateMatrixWorld();
     if (!detailsMode) updateLabels();
-    renderer.render(space, camera);
+    if (probe) {
+      const seconds = (now - probe.start) / 1000;
+      if (seconds > 1) probe.frames++;
+      if (seconds > 3.5) {
+        if (probe.frames / (seconds - 1) < 24) { glowing = false; showGlow(); }
+        probe = null;
+      }
+    }
+    if (glowing) {
+      if (!composer) {
+        composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(space, camera));
+        composer.addPass(new UnrealBloomPass(new THREE.Vector2(stage.clientWidth, stage.clientHeight), 0.17, 0.22, 0.9));
+        composer.addPass(new OutputPass());
+      }
+      composer.render();
+    } else renderer.render(space, camera);
   });
 
-  return { render, screenPoint, getStructure, showStructure };
+  return { render, renderExport, leaveExport, screenPoint, getStructure, showStructure, resetView: () => fit(true) };
 }

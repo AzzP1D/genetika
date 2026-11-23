@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Трансляция · Генетика</title>
-  <link rel="stylesheet" href="translation.css?v=0.27.4">
+  <link rel="stylesheet" href="translation.css?v=0.27.6">
+  <script src="path.js?v=0.27.2"></script>
   <script type="importmap">
     { "imports": {
       "three": "./lib/three.module.js",
@@ -14,16 +15,21 @@
       "./membrane.js": "./membrane.js?v=0.27",
       "./cytoskeleton.js": "./cytoskeleton.js?v=0.27",
       "./transcription-sequence.js": "./transcription-sequence.js?v=0.27.2",
-      "./rna-splicing-scene.js": "./rna-splicing-scene.js?v=0.27.6",
+      "./rna-splicing-scene.js": "./rna-splicing-scene.js?v=0.27.8",
+      "./rna-export-scene.js": "./rna-export-scene.js?v=0.27.1",
+      "./mitoinput.js": "./mitoinput.js?v=0.27.1",
       "./rna-end-models.js": "./rna-end-models.js?v=0.27.1"
     } }
   </script>
-  <script type="module" src="translation.js?v=0.27.3"></script>
+  <script type="module" src="translation.js?v=0.27.5"></script>
 </head>
 <body>
   <header class="panel">
     <h1>Трансляция</h1>
-    <a id="back" href="rna-splicing.html?frame=mature">← Сплайсинг</a>
+    <div class="header-actions">
+      <button id="glow" type="button" aria-label="Свечение сцены" aria-pressed="false" hidden>✧</button>
+      <a id="back" href="rna-splicing.html?frame=mature">← Сплайсинг</a>
+    </div>
   </header>
 
   <main id="stage" aria-label="Трёхмерная модель зрелой мРНК">
@@ -32,13 +38,23 @@
       <button class="end" type="button" data-end="tail" aria-label="Поли(А)-хвост на 3′-конце">3′</button>
       <span id="selection" aria-hidden="true" hidden></span>
     </div>
-    <p id="model-unavailable" hidden>3D-модель недоступна. Выбери участок мРНК по кнопкам ниже.</p>
+    <div id="export-markers" hidden>
+      <span data-point="nucleus">Ядро</span>
+      <span data-point="cytoplasm">Цитоплазма</span>
+      <button data-point="membranes" type="button">Две мембраны</button>
+      <button data-point="pore" class="guide" type="button">Ядерная пора</button>
+      <button data-point="factor" class="guide" type="button">Белки экспорта</button>
+    </div>
+    <div id="model-unavailable" hidden>
+      <p>3D-сцена недоступна. Урок можно пройти по пояснениям и кнопкам.</p>
+      <button id="restore-scene" type="button" hidden>Восстановить 3D-сцену</button>
+    </div>
   </main>
 
   <div class="lesson-panels">
     <section class="panel" id="scene-summary" aria-labelledby="scene-title">
       <h2 id="scene-title">Зрелая мРНК в ядре</h2>
-      <p>При сплайсинге два интрона удалились, а три экзона соединились в одну цепь. На её концах видны кэп (5′) и поли(А)-хвост (3′).</p>
+      <p id="scene-copy">При сплайсинге два интрона удалились, а три экзона соединились в одну цепь. На её концах видны кэп (5′) и поли(А)-хвост (3′).</p>
     </section>
 
     <footer class="panel" aria-label="Задание и пояснение">
@@ -49,6 +65,7 @@
       <button id="details-toggle" type="button" aria-controls="details" aria-expanded="false">Подробнее</button>
       <div id="details" tabindex="0" hidden>
         <p id="detail-copy">Бирюзовые перемычки показывают два стыка, где соединились соседние экзоны. Число экзонов зависит от гена. Здесь мы рассматриваем ту же цепь из трёх экзонов, которую получили в финале сплайсинга.</p>
+        <p id="model-source" hidden>Белки экспорта показаны по <a href="https://www.rcsb.org/structure/1JKG" target="_blank" rel="noopener noreferrer">PDB 1JKG</a> (NXT1 и фрагмент NXF1). Оболочка, пора и движение мРНК показаны схематически.</p>
       </div>
       <div id="parts" role="group" aria-label="Участки зрелой мРНК">
         <button type="button" data-part="cap" aria-pressed="false">Кэп · 5′</button>
@@ -57,6 +74,15 @@
         <button type="button" data-part="e3" aria-pressed="false">Экзон 3</button>
         <button type="button" data-part="tail" aria-pressed="false">Поли(А) · 3′</button>
       </div>
+      <div id="timeline-controls" role="group" aria-label="Просмотр анимации" hidden>
+        <div id="frame-navigation">
+          <button id="previous-frame" type="button" aria-label="Предыдущий кадр">←</button>
+          <output id="frame-name" for="timeline"></output>
+          <button id="next-frame" type="button" aria-label="Следующий кадр">→</button>
+        </div>
+        <input id="timeline" type="range" min="0" max="8" value="0" step="0.01" aria-label="Кадры выхода мРНК">
+      </div>
+      <div id="lesson-controls" role="group" aria-label="Действия в уроке"></div>
     </footer>
   </div>
 </body>
